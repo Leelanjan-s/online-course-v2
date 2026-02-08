@@ -1,160 +1,150 @@
 :root {
   --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
   --bg: #f3f4f6;
-  --surface: #ffffff;
   --text: #1f2937;
   --text-light: #6b7280;
-  --border: #e5e7eb;
-}
-
-* {
-  box-sizing: border-box;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
   margin: 0;
-  padding: 40px 20px;
+  padding: 0;
 }
 
 .container {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 40px 20px;
 }
 
+/* HEADER */
 header {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 40px;
 }
 
 header h1 {
-  margin: 0;
   color: var(--primary);
+  font-weight: 800;
   font-size: 2.2rem;
-}
-
-header p {
-  color: var(--text-light);
-  margin-top: 5px;
-}
-
-/* CARDS */
-.card {
-  background: var(--surface);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  margin-bottom: 30px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.card-header {
-  background: #f9fafb;
-  padding: 15px 25px;
-  border-bottom: 1px solid var(--border);
-}
-
-.card-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+}
+
+.logout-link {
+  color: #dc2626;
+  text-decoration: none;
   font-weight: 600;
-  color: var(--text);
+  border: 1px solid #dc2626;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.logout-link:hover {
+  background: #dc2626;
+  color: white;
+}
+
+/* --- GRID SYSTEM --- */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+  padding-bottom: 50px;
+}
+
+/* --- CARD DESIGN --- */
+.course-card {
+  background: white;
+  border-radius: 16px; /* Rounded corners like reference */
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid #e5e7eb;
+}
+
+.course-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* The Colorful Banner at the top */
+.card-banner {
+  height: 160px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255, 0.9);
+  font-size: 4rem;
+  font-weight: 900;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .card-body {
-  padding: 25px;
-}
-
-/* FORMS */
-.form-row {
+  padding: 20px;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px 0;
+}
+
+.card-desc {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  line-height: 1.5;
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  flex-grow: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-input, select {
-  padding: 10px 15px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.95rem;
-  flex: 1; 
-  min-width: 200px;
-  transition: border-color 0.2s;
+.card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
 }
 
-input:focus, select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+.price {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.1rem;
 }
 
-/* BUTTONS */
-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-  font-size: 0.95rem;
-}
-
+/* Buttons */
 .btn-primary {
   background: var(--primary);
   color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
+  background: #4338ca;
 }
 
-.btn-danger {
-  background: #fee2e2;
-  color: var(--danger);
-  padding: 6px 12px;
-  font-size: 0.85rem;
-}
-
-.btn-danger:hover {
-  background: var(--danger);
-  color: white;
-}
-
-/* TABLES */
-.table-wrapper {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.95rem;
-}
-
-th {
-  background: #f9fafb;
-  text-align: left;
-  padding: 12px 15px;
-  font-weight: 600;
-  color: var(--text-light);
-  border-bottom: 1px solid var(--border);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-}
-
-td {
-  padding: 12px 15px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-}
-
-tr:last-child td {
-  border-bottom: none;
+.btn-group {
+  display: flex;
+  gap: 10px;
 }

@@ -1,30 +1,52 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from app.models import Course, User, Enrollment
-from app.schemas import CourseCreate
+from pydantic import BaseModel
+from typing import Optional
+from app.models import Course, User, Content, Quiz
+from app.schemas import CourseCreate, ContentCreate, QuizCreate
 from app.database import get_db
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
+# --- Schema for Updating ---
+class CourseUpdate(BaseModel):
+    title: str
+    description: str
+    price: float
+    teacher_id: int
+
 @router.post("/")
 def create_course(course: CourseCreate, db: Session = Depends(get_db)):
-    if not course.title or course.title.strip() == "":
-        raise HTTPException(status_code=400, detail="Course title cannot be empty")
-        
-    c = Course(**course.dict())
+    teacher = db.query(User).filter(User.id == course.teacher_id).first()
+    if not teacher or teacher.role != "Teacher":
+        raise HTTPException(status_code=400, detail="Invalid Teacher ID")
+
+    c = Course(title=course.title, description=course.description, price=course.price, teacher_id=course.teacher_id)
     db.add(c)
     db.commit()
-    return {"message": "Course created"}
+    db.refresh(c)
+    return c
 
 @router.get("/")
 def list_courses(db: Session = Depends(get_db)):
-    results = (
-        db.query(Course.id, Course.title, User.name.label("teacher"))
-        .join(User, Course.teacher_id == User.id)
-        .filter(Course.title != "")
-        .all()
-    )
-    return [{"id": r.id, "title": r.title, "teacher": r.teacher} for r in results]
+    results = db.query(Course.id, Course.title, Course.description, Course.price, User.name.label("teacher_name"), Course.teacher_id).join(User, Course.teacher_id == User.id).all()
+    return [{"id": r.id, "title": r.title, "description": r.description, "price": r.price, "teacher": r.teacher_name, "teacher_id": r.teacher_id} for r in results]
+
+# --- NEW PUT ENDPOINT ---
+@router.put("/{course_id}")
+def update_course(course_id: int, course_data: CourseUpdate, db: Session = Depends(get_db)):
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    course.title = course_data.title
+    course.description = course_data.description
+    course.price = course_data.price
+    course.teacher_id = course_data.teacher_id
+    
+    db.commit()
+    db.refresh(course)
+    return {"message": "Course updated successfully"}
 
 @router.delete("/{course_id}")
 def delete_course(course_id: int, db: Session = Depends(get_db)):
@@ -32,8 +54,21 @@ def delete_course(course_id: int, db: Session = Depends(get_db)):
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    db.query(Enrollment).filter(Enrollment.course_id == course_id).delete()
-    
     db.delete(course)
     db.commit()
     return {"message": "Course deleted"}
+
+# --- Content & Quizzes ---
+@router.post("/{course_id}/content")
+def add_content(course_id: int, content: ContentCreate, db: Session = Depends(get_db)):
+    c = Content(**content.dict(), course_id=course_id)
+    db.add(c)
+    db.commit()
+    return {"message": "Content added"}
+
+@router.post("/{course_id}/quiz")
+def add_quiz(course_id: int, quiz: QuizCreate, db: Session = Depends(get_db)):
+    q = Quiz(**quiz.dict(), course_id=course_id)
+    db.add(q)
+    db.commit()
+    return {"message": "Quiz added"}

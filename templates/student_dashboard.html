@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+    
+    .card-hover:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .playlist-scroll::-webkit-scrollbar { width: 6px; }
+    .playlist-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <nav class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16 items-center">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-graduation-cap text-indigo-600 text-3xl"></i>
+          <span class="font-bold text-xl tracking-tight text-gray-900">ProLearn</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-gray-600">Welcome, <span id="studentName" class="font-bold text-indigo-600">Student</span></span>
+          <button onclick="logout()" class="text-sm bg-red-50 text-red-600 px-4 py-2 rounded-full hover:bg-red-100 transition">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div id="heroSection" class="bg-gray-900 text-white py-12 mb-8 animate__animated animate__fadeIn">
+    <div class="max-w-7xl mx-auto px-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-4xl font-bold mb-4">Unlock Your Potential</h1>
+        <p class="text-lg text-gray-300 mb-6">Learning that gets you started on your career path.</p>
+        
+        <div class="relative max-w-lg">
+          <input type="text" id="searchInput" onkeyup="filterCourses()" placeholder="What do you want to learn?" class="w-full px-5 py-3 rounded-full text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-lg">
+          <button onclick="filterCourses()" class="absolute right-2 top-1.5 bg-indigo-600 p-2 rounded-full hover:bg-indigo-700 transition">
+            <i class="fa-solid fa-search text-white"></i>
+          </button>
+        </div>
+
+      </div>
+      <img src="https://cdn-icons-png.flaticon.com/512/3426/3426653.png" class="h-48 hidden md:block opacity-90 animate__animated animate__pulse animate__infinite" style="animation-duration: 3s;">
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 pb-12">
+    
+    <div id="catalog" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate__animated animate__fadeInUp">
+      </div>
+    
+    <div id="noResults" class="hidden text-center py-10">
+        <div class="text-6xl mb-4">🔍</div>
+        <h3 class="text-xl font-bold text-gray-700">No courses found</h3>
+        <p class="text-gray-500">Try searching for something else like "Python" or "Design".</p>
+    </div>
+
+    <div id="learningArea" class="hidden bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 animate__animated animate__zoomIn">
+      
+      <div class="bg-gray-900 text-white p-4 flex justify-between items-center">
+        <button onclick="closePlayer()" class="text-gray-300 hover:text-white flex items-center gap-2">
+          <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+        </button>
+        <h2 id="courseTitle" class="font-bold text-lg"></h2>
+        <div class="w-8"></div>
+      </div>
+
+      <div class="flex flex-col lg:flex-row h-[80vh]">
+        <div class="w-full lg:w-3/4 bg-black flex items-center justify-center relative group" id="videoStage">
+          <div class="text-center">
+            <i class="fa-solid fa-play-circle text-6xl text-white opacity-50"></i>
+            <p class="text-gray-400 mt-4">Select a lesson from the right to start.</p>
+          </div>
+        </div>
+
+        <div class="w-full lg:w-1/4 bg-white border-l border-gray-200 flex flex-col">
+          <div class="p-4 border-b border-gray-100 bg-gray-50">
+            <h3 class="font-bold text-gray-700">Course Content</h3>
+            <p class="text-xs text-gray-500 mt-1">Track your progress</p>
+          </div>
+          <div id="playlist" class="flex-1 overflow-y-auto p-2 playlist-scroll space-y-2">
+            </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+    const studentId = parseInt(localStorage.getItem("user_id"));
+    const role = localStorage.getItem("role");
+    
+    if (!studentId || role !== "Student") { window.location.href = "/"; }
+
+    function logout() { localStorage.clear(); window.location.href = "/"; }
+
+    let courseData = { videos: [], quizzes: [] };
+
+    function getCourseImage(id) {
+        const images = [
+            "https://img.freepik.com/free-vector/laptop-with-program-code-isometric-icon-software-development-programming-applications-dark-neon_39422-971.jpg",
+            "https://img.freepik.com/free-vector/gradient-ui-ux-background_23-2149052117.jpg",
+            "https://img.freepik.com/free-vector/web-development-programmer-engineering-coding-website-augmented-reality-interface-screens-developer-project-engineer-programming-software-application-design-cartoon-illustration_107791-3863.jpg",
+            "https://img.freepik.com/free-vector/data-analysis-isometric-concept-with-team-people-working-with-charts-graphs_1284-58580.jpg"
+        ];
+        return images[id % images.length];
+    }
+
+    // --- NEW: FILTER FUNCTION ---
+    function filterCourses() {
+        const input = document.getElementById('searchInput');
+        const filter = input.value.toLowerCase();
+        const catalog = document.getElementById('catalog');
+        const cards = catalog.getElementsByClassName('course-card'); // We added this class to cards below
+        const noResults = document.getElementById('noResults');
+        let hasVisible = false;
+
+        for (let i = 0; i < cards.length; i++) {
+            const title = cards[i].getAttribute('data-title').toLowerCase();
+            const desc = cards[i].getAttribute('data-desc').toLowerCase();
+            
+            if (title.includes(filter) || desc.includes(filter)) {
+                cards[i].style.display = "";
+                hasVisible = true;
+            } else {
+                cards[i].style.display = "none";
+            }
+        }
+
+        if (!hasVisible && cards.length > 0) {
+            noResults.classList.remove('hidden');
+        } else {
+            noResults.classList.add('hidden');
+        }
+    }
+
+    async function loadCourses() {
+        const userName = localStorage.getItem("user_name");
+        if(userName) document.getElementById("studentName").innerText = userName;
+
+        try {
+            const res = await fetch("/courses/");
+            const courses = await res.json();
+            
+            let myCourseIds = [];
+            try {
+                const resEnroll = await fetch("/enrollments/");
+                if(resEnroll.ok) {
+                    const enrollments = await resEnroll.json();
+                    myCourseIds = enrollments.filter(e => e.student_id === studentId).map(e => e.course_id);
+                }
+            } catch(e) {}
+
+            const catalog = document.getElementById("catalog");
+            catalog.innerHTML = "";
+
+            if(!courses.length) {
+                catalog.innerHTML = "<div class='col-span-full text-center py-10'><p class='text-gray-500'>No courses found.</p></div>";
+                return;
+            }
+
+            courses.forEach(c => {
+                const isOwned = myCourseIds.includes(c.id);
+                const imgSrc = getCourseImage(c.id);
+                
+                // Added 'course-card' class and data attributes for the search filter
+                catalog.innerHTML += `
+                    <div class="course-card bg-white rounded-xl shadow-md overflow-hidden card-hover transition-all duration-300 border border-gray-100 flex flex-col h-full"
+                         data-title="${c.title}" 
+                         data-desc="${c.description || ''}">
+                        <div class="h-40 overflow-hidden relative group">
+                            <img src="${imgSrc}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                            ${isOwned ? '<div class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded shadow">OWNED</div>' : ''}
+                        </div>
+                        <div class="p-5 flex flex-col flex-grow">
+                            <h3 class="font-bold text-lg text-gray-800 mb-1 line-clamp-1">${c.title}</h3>
+                            <p class="text-sm text-gray-500 mb-4 line-clamp-2 flex-grow">${c.description || 'Master this skill today.'}</p>
+                            
+                            <div class="flex items-center justify-between mt-auto">
+                                ${isOwned 
+                                    ? `<button onclick="openPlayer(${c.id}, '${c.title}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
+                                         <i class="fa-solid fa-play"></i> Continue
+                                       </button>` 
+                                    : `<div>
+                                         <span class="text-xs text-gray-400 block">Price</span>
+                                         <span class="text-xl font-bold text-gray-900">₹${c.price}</span>
+                                       </div>
+                                       <button onclick="buyCourse(${c.id}, ${c.price})" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-lg shadow-indigo-200">
+                                         Enroll
+                                       </button>`
+                                }
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    async function openPlayer(id, title) {
+        document.getElementById("catalog").classList.add("hidden");
+        document.getElementById("heroSection").classList.add("hidden");
+        document.getElementById("noResults").classList.add("hidden"); // Hide msg if open
+        document.getElementById("learningArea").classList.remove("hidden");
+        document.getElementById("courseTitle").innerText = title;
+
+        const res = await fetch(`/courses/${id}/learn?student_id=${studentId}`);
+        const data = await res.json();
+        courseData = data; 
+
+        const playlist = document.getElementById("playlist");
+        playlist.innerHTML = "";
+
+        if(!data.videos.length && !data.quizzes.length) {
+            playlist.innerHTML = "<p class='text-center text-gray-400 mt-10'>No content yet.</p>";
+        }
+
+        // Videos
+        data.videos.forEach((v, index) => {
+            const isDone = (data.progress.videos || "").split(",").includes(String(v.id));
+            playlist.innerHTML += `
+                <div onclick="playVideo(${index}, ${id}, this)" class="lesson-item p-3 rounded-lg hover:bg-indigo-50 cursor-pointer transition flex items-center gap-3 border border-transparent hover:border-indigo-100 group">
+                    <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600">
+                        <i class="fa-solid fa-play text-xs"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <p class="text-sm font-medium text-gray-700 group-hover:text-indigo-900">${v.title}</p>
+                        <p class="text-xs text-gray-400">Video Lesson</p>
+                    </div>
+                    ${isDone ? '<i class="fa-solid fa-circle-check text-green-500 text-lg"></i>' : '<i class="fa-regular fa-circle text-gray-300"></i>'}
+                </div>`;
+        });
+
+        // Quizzes
+        data.quizzes.forEach((q, index) => {
+             const isDone = (data.progress.quizzes || "").split(",").includes(String(q.id));
+             playlist.innerHTML += `
+                <div onclick="renderQuiz(${index}, ${id}, ${q.id}, this)" class="lesson-item p-3 rounded-lg hover:bg-purple-50 cursor-pointer transition flex items-center gap-3 border border-transparent hover:border-purple-100 group">
+                    <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-purple-100 group-hover:text-purple-600">
+                        <i class="fa-solid fa-question text-xs"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <p class="text-sm font-medium text-gray-700 group-hover:text-purple-900">Quiz Challenge</p>
+                        <p class="text-xs text-gray-400">Test Knowledge</p>
+                    </div>
+                    ${isDone ? '<i class="fa-solid fa-circle-check text-green-500 text-lg"></i>' : '<i class="fa-regular fa-circle text-gray-300"></i>'}
+                </div>`;
+        });
+    }
+
+    function closePlayer() {
+        document.getElementById("learningArea").classList.add("hidden");
+        document.getElementById("catalog").classList.remove("hidden");
+        document.getElementById("heroSection").classList.remove("hidden");
+        document.getElementById("videoStage").innerHTML = `<div class="text-center"><i class="fa-solid fa-play-circle text-6xl text-white opacity-50"></i></div>`;
+        loadCourses(); 
+    }
+
+    // --- PLAY & QUIZ LOGIC (SAME AS BEFORE) ---
+    function playVideo(index, cId, element) {
+        highlightItem(element);
+        const v = courseData.videos[index];
+        let embedUrl = v.url;
+        if (v.url.includes("youtube") || v.url.includes("youtu.be")) {
+            const videoId = v.url.split("v=")[1] || v.url.split("/").pop();
+            embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+        }
+        document.getElementById("videoStage").innerHTML = `<iframe src="${embedUrl}" class="w-full h-full" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+        fetch("/progress/mark", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({student_id:studentId, course_id:cId, item_id:v.id, type:"video"}) });
+        updateIcon(element);
+    }
+
+    function renderQuiz(index, cId, qId, element) {
+        highlightItem(element);
+        const q = courseData.quizzes[index];
+        const safeAnswer = q.answer.replace(/"/g, '&quot;'); 
+        const optsArray = (q.options || "True,False").split(",").map(o => o.trim());
+        let optsHTML = optsArray.map(opt => `
+            <label class="block bg-gray-50 hover:bg-indigo-50 border border-gray-200 p-4 rounded-lg cursor-pointer transition">
+                <input type="radio" name="quiz_selection" value="${opt}" class="mr-2 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-gray-700 font-medium">${opt}</span>
+            </label>`).join("");
+
+        document.getElementById("videoStage").innerHTML = `
+            <div class="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full text-gray-800 animate__animated animate__fadeInUp">
+                <div class="text-center mb-6"><div class="inline-block p-3 rounded-full bg-indigo-100 text-indigo-600 mb-3 text-2xl">🤔</div><h2 class="text-2xl font-bold">Quiz Time</h2></div>
+                <p class="text-lg font-medium mb-6 text-gray-800">${q.question}</p>
+                <div class="space-y-3 mb-6">${optsHTML}</div>
+                <div id="quizResult" class="text-center mb-4 font-bold text-lg min-h-[1.75rem]"></div>
+                <button onclick="submitQuiz('${safeAnswer}', ${cId}, ${qId}, this)" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg">Submit Answer</button>
+            </div>`;
+    }
+
+    function submitQuiz(correctAnswer, cId, qId, btn) {
+        const selected = document.querySelector('input[name="quiz_selection"]:checked');
+        const resDiv = document.getElementById("quizResult");
+        if(!selected) { resDiv.innerHTML = "<span class='text-orange-500'>Please select an option!</span>"; return; }
+
+        if(selected.value.toLowerCase() === correctAnswer.toLowerCase()) {
+            resDiv.innerHTML = "<span class='text-green-600 animate__animated animate__rubberBand'>✅ Correct! Awesome job.</span>";
+            fetch("/progress/mark", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({student_id:studentId, course_id:cId, item_id:qId, type:"quiz"}) });
+        } else {
+            resDiv.innerHTML = "<span class='text-red-500 animate__animated animate__shakeX'>❌ Incorrect. Try again!</span>";
+        }
+    }
+
+    function highlightItem(el) {
+        document.querySelectorAll('.lesson-item').forEach(i => i.classList.remove('bg-indigo-50', 'border-l-4', 'border-indigo-500'));
+        el.classList.add('bg-indigo-50', 'border-l-4', 'border-indigo-500');
+    }
+    
+    function updateIcon(el) {
+        el.querySelector('.fa-regular.fa-circle')?.classList.replace('fa-regular', 'fa-solid');
+        el.querySelector('.fa-circle')?.classList.replace('text-gray-300', 'text-green-500');
+        el.querySelector('.fa-circle')?.classList.add('fa-circle-check');
+    }
+
+    async function buyCourse(id, price) {
+        if(confirm(`Enroll for ₹${price}? (Mock Payment)`)) {
+             await fetch("/payments/mock_success", {
+                method: "POST", headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({
+                    student_id: studentId, course_id: id,
+                    razorpay_payment_id: "mock_" + Date.now(),
+                    razorpay_order_id: "mock_" + Date.now(),
+                    razorpay_signature: "mock_" + Date.now()
+                })
+            });
+            alert("Enrollment Successful!");
+            location.reload();
+        }
+    }
+
+    loadCourses();
+</script>
+</body>
+</html>

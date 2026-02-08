@@ -2,79 +2,322 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Online Course System</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
-  <script src="/static/script.js" defer></script>
+  <title>Admin Dashboard - Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+    
+    /* Table Animations */
+    tbody tr { animation: fadeIn 0.5s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
 </head>
 <body>
 
-<div class="container">
-  <header>
-    <h1>🎓 Online Course System</h1>
-    <p>Admin Dashboard</p>
-  </header>
-
-  <div class="card">
-    <div class="card-header">
-      <h2>Manage Users</h2>
+  <nav class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16 items-center">
+        <div class="flex items-center gap-3">
+          <div class="bg-indigo-600 text-white p-2 rounded-lg">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <span class="font-bold text-xl tracking-tight text-gray-900">AdminPanel</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-gray-500 text-sm">Logged in as <span id="adminName" class="font-bold text-gray-800">Admin</span></span>
+          <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-100 transition">
+            <i class="fa-solid fa-sign-out-alt"></i> Logout
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="card-body">
-      <div class="form-row">
-        <input id="name" placeholder="Full Name">
-        <input id="email" placeholder="Email Address">
-        <select id="role">
-          <option>Student</option>
-          <option>Teacher</option>
-        </select>
-        <button class="btn-primary" onclick="addUser()">+ Add User</button>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 animate__animated animate__fadeInDown">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500 font-medium">Total Users</p>
+          <h2 class="text-3xl font-bold text-gray-800 mt-1" id="userCount">0</h2>
+        </div>
+        <div class="p-4 bg-blue-50 text-blue-600 rounded-xl text-xl">
+          <i class="fa-solid fa-users"></i>
+        </div>
       </div>
-      <div class="table-wrapper">
-        <table id="usersTable"></table>
+
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500 font-medium">Active Courses</p>
+          <h2 class="text-3xl font-bold text-gray-800 mt-1" id="courseCount">0</h2>
+        </div>
+        <div class="p-4 bg-emerald-50 text-emerald-600 rounded-xl text-xl">
+          <i class="fa-solid fa-book-open"></i>
+        </div>
       </div>
+
+      <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-lg text-white flex items-center justify-between">
+        <div>
+          <p class="text-indigo-100 text-sm font-medium">System Status</p>
+          <h2 class="text-2xl font-bold mt-1">Online 🟢</h2>
+        </div>
+        <div class="p-4 bg-white/20 rounded-xl text-xl backdrop-blur-sm">
+          <i class="fa-solid fa-server"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      
+      <div class="space-y-6 animate__animated animate__fadeInLeft">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800 text-lg">👥 Manage Users</h3>
+          </div>
+          
+          <div class="p-6 bg-white border-b border-gray-100">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <input id="userName" placeholder="Full Name" class="w-full px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+              <input id="userEmail" placeholder="Email Address" class="w-full px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div class="flex gap-4">
+              <select id="userRole" class="flex-1 px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="Student">Student</option>
+                <option value="Teacher">Teacher</option>
+                <option value="Admin">Admin</option>
+              </select>
+              <button onclick="addUser()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition shadow-md">
+                <i class="fa-solid fa-plus"></i> Add
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto max-h-[400px] overflow-y-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+              <thead class="bg-gray-50 text-xs uppercase font-bold text-gray-500 sticky top-0">
+                <tr>
+                  <th class="px-6 py-3">User</th>
+                  <th class="px-6 py-3">Role</th>
+                  <th class="px-6 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="usersTable" class="divide-y divide-gray-100">
+                </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6 animate__animated animate__fadeInRight">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800 text-lg">📚 Manage Courses</h3>
+          </div>
+
+          <div class="p-6 bg-white border-b border-gray-100 relative">
+            <input type="hidden" id="editCourseId">
+            <div class="space-y-3">
+              <input id="courseTitle" placeholder="Course Title" class="w-full px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none">
+              <input id="courseDesc" placeholder="Short Description" class="w-full px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none">
+              <div class="grid grid-cols-2 gap-4">
+                <input id="coursePrice" type="number" placeholder="Price (₹)" class="w-full px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none">
+                <select id="teacherSelect" class="w-full px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none">
+                  <option disabled selected value="">Select Teacher</option>
+                </select>
+              </div>
+              
+              <div class="flex gap-2 pt-2">
+                <button id="createBtn" onclick="createCourse()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition shadow-md">
+                  Create Course
+                </button>
+                <button id="updateBtn" onclick="updateCourse()" class="hidden flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg transition shadow-md">
+                  Update
+                </button>
+                <button id="cancelBtn" onclick="resetForm()" class="hidden px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto max-h-[400px] overflow-y-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+              <thead class="bg-gray-50 text-xs uppercase font-bold text-gray-500 sticky top-0">
+                <tr>
+                  <th class="px-6 py-3">Course Info</th>
+                  <th class="px-6 py-3">Price</th>
+                  <th class="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="coursesTable" class="divide-y divide-gray-100">
+                </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <h2>Manage Courses</h2>
-    </div>
-    <div class="card-body">
-      <div class="form-row">
-        <input id="courseTitle" placeholder="Course Title">
-        <select id="teacherSelect">
-          <option disabled selected>Select Teacher</option>
-        </select>
-        <button class="btn-primary" onclick="createCourse()">+ Create Course</button>
-      </div>
-      <div class="table-wrapper">
-        <table id="coursesTable"></table>
-      </div>
-    </div>
-  </div>
+<script>
+    // --- SECURITY & IDENTITY ---
+    const role = localStorage.getItem("role");
+    if (role !== "Admin") {
+        window.location.href = "/";
+    }
+    document.getElementById('adminName').innerText = localStorage.getItem("user_name") || "Admin";
 
-  <div class="card">
-    <div class="card-header">
-      <h2>Enrollments</h2>
-    </div>
-    <div class="card-body">
-      <div class="form-row">
-        <select id="studentSelect">
-          <option disabled selected>Select Student</option>
-        </select>
-        <select id="courseSelect">
-          <option disabled selected>Select Course</option>
-        </select>
-        <button class="btn-primary" onclick="enrollStudent()">Enroll Student</button>
-      </div>
-      <div class="table-wrapper">
-        <table id="enrollmentsTable"></table>
-      </div>
-    </div>
-  </div>
+    function logout() { localStorage.clear(); window.location.href = "/"; }
 
-</div>
+    // --- DATA FETCHING ---
+    async function fetchUsers() {
+        try {
+            const res = await fetch("/users/");
+            const users = await res.json();
+            
+            document.getElementById("userCount").innerText = users.length;
+            
+            const table = document.getElementById("usersTable");
+            const select = document.getElementById("teacherSelect");
+            const currentVal = select.value;
 
+            table.innerHTML = "";
+            select.innerHTML = `<option disabled selected value="">Select Teacher</option>`;
+
+            users.forEach(u => {
+                // Determine Badge Color
+                let badgeClass = "bg-gray-100 text-gray-600";
+                if(u.role === 'Admin') badgeClass = "bg-purple-100 text-purple-700";
+                if(u.role === 'Teacher') badgeClass = "bg-emerald-100 text-emerald-700";
+                if(u.role === 'Student') badgeClass = "bg-blue-100 text-blue-700";
+
+                table.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-900">${u.name}</div>
+                            <div class="text-xs text-gray-400">${u.email}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${badgeClass}">${u.role}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick="deleteUser(${u.id})" class="text-red-400 hover:text-red-600 transition"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+
+                if(u.role === "Teacher") {
+                    const opt = document.createElement("option");
+                    opt.value = u.id; opt.innerText = u.name;
+                    select.appendChild(opt);
+                }
+            });
+            if(currentVal) select.value = currentVal;
+        } catch (e) { console.error(e); }
+    }
+
+    async function fetchCourses() {
+        try {
+            const res = await fetch("/courses/");
+            const courses = await res.json();
+            
+            document.getElementById("courseCount").innerText = courses.length;
+            const table = document.getElementById("coursesTable");
+            table.innerHTML = "";
+
+            courses.forEach(c => {
+                table.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-900">${c.title}</div>
+                            <div class="text-xs text-gray-400">By: ${c.teacher}</div>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-gray-700">₹${c.price}</td>
+                        <td class="px-6 py-4 text-right space-x-2">
+                            <button onclick="editCourse(${c.id}, '${c.title}', '${c.description}', ${c.price}, ${c.teacher_id})" class="text-blue-500 hover:text-blue-700"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteCourse(${c.id})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    // --- ACTIONS ---
+    async function addUser() {
+        const name = document.getElementById("userName").value;
+        const email = document.getElementById("userEmail").value;
+        const role = document.getElementById("userRole").value;
+        if(!name || !email) return alert("Fill all fields");
+
+        await fetch("/users/", { 
+            method: "POST", headers: {"Content-Type": "application/json"}, 
+            body: JSON.stringify({ name, email, role, password: "123456" }) 
+        });
+        document.getElementById("userName").value = "";
+        document.getElementById("userEmail").value = "";
+        fetchUsers();
+    }
+
+    async function deleteUser(id) {
+        if(confirm("Delete user?")) { await fetch(`/users/${id}`, { method: "DELETE" }); fetchUsers(); fetchCourses(); }
+    }
+
+    async function createCourse() {
+        const body = {
+            title: document.getElementById("courseTitle").value,
+            description: document.getElementById("courseDesc").value,
+            price: parseFloat(document.getElementById("coursePrice").value),
+            teacher_id: parseInt(document.getElementById("teacherSelect").value)
+        };
+        await fetch("/courses/", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+        resetForm(); fetchCourses();
+    }
+
+    async function updateCourse() {
+        const id = document.getElementById("editCourseId").value;
+        const body = {
+            title: document.getElementById("courseTitle").value,
+            description: document.getElementById("courseDesc").value,
+            price: parseFloat(document.getElementById("coursePrice").value),
+            teacher_id: parseInt(document.getElementById("teacherSelect").value)
+        };
+        await fetch(`/courses/${id}`, { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+        resetForm(); fetchCourses();
+    }
+
+    async function deleteCourse(id) {
+        if(confirm("Delete course?")) { await fetch(`/courses/${id}`, { method: "DELETE" }); fetchCourses(); }
+    }
+
+    // --- UI HELPERS ---
+    function editCourse(id, title, desc, price, tid) {
+        document.getElementById("editCourseId").value = id;
+        document.getElementById("courseTitle").value = title;
+        document.getElementById("courseDesc").value = desc;
+        document.getElementById("coursePrice").value = price;
+        document.getElementById("teacherSelect").value = tid;
+        
+        document.getElementById("createBtn").classList.add("hidden");
+        document.getElementById("updateBtn").classList.remove("hidden");
+        document.getElementById("cancelBtn").classList.remove("hidden");
+    }
+
+    function resetForm() {
+        document.getElementById("editCourseId").value = "";
+        document.getElementById("courseTitle").value = "";
+        document.getElementById("courseDesc").value = "";
+        document.getElementById("coursePrice").value = "";
+        document.getElementById("teacherSelect").value = "";
+        
+        document.getElementById("createBtn").classList.remove("hidden");
+        document.getElementById("updateBtn").classList.add("hidden");
+        document.getElementById("cancelBtn").classList.add("hidden");
+    }
+
+    fetchUsers();
+    fetchCourses();
+</script>
 </body>
 </html>
