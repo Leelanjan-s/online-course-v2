@@ -2,9 +2,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
-from app.models import Course, User, Content, Quiz
+from app.models import Course, User, Content, Quiz, Enrollment
 from app.schemas import CourseCreate, ContentCreate, QuizCreate
 from app.database import get_db
+# 👇 NEW: Import the email functions
+from app.email_utils import send_teacher_assigned_email, send_enrollment_confirm
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
@@ -15,8 +17,13 @@ class CourseUpdate(BaseModel):
     price: float
     teacher_id: int
 
+# --- Schema for Enrollment ---
+class EnrollmentRequest(BaseModel):
+    student_id: int
+
+# 👇 CHANGED to 'async def' to allow email sending
 @router.post("/")
-def create_course(course: CourseCreate, db: Session = Depends(get_db)):
+async def create_course(course: CourseCreate, db: Session = Depends(get_db)):
     teacher = db.query(User).filter(User.id == course.teacher_id).first()
     if not teacher or teacher.role != "Teacher":
         raise HTTPException(status_code=400, detail="Invalid Teacher ID")
@@ -25,14 +32,47 @@ def create_course(course: CourseCreate, db: Session = Depends(get_db)):
     db.add(c)
     db.commit()
     db.refresh(c)
+
+    # 👇 SEND EMAIL TO TEACHER
+    if teacher.email:
+        await send_teacher_assigned_email(teacher.email, teacher.name, c.title)
+
     return c
+
+# 👇 NEW ENDPOINT: Enrolls a student and sends the email
+@router.post("/{course_id}/enroll")
+async def enroll_student(course_id: int, enrollment: EnrollmentRequest, db: Session = Depends(get_db)):
+    # 1. Check if course exists
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    # 2. Check if student exists
+    student = db.query(User).filter(User.id == enrollment.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    # 3. Check if already enrolled
+    existing = db.query(Enrollment).filter(Enrollment.student_id == student.id, Enrollment.course_id == course.id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Already enrolled")
+
+    # 4. Create Enrollment
+    new_enrollment = Enrollment(student_id=student.id, course_id=course.id)
+    db.add(new_enrollment)
+    db.commit()
+
+    # 👇 SEND EMAIL TO STUDENT
+    if student.email:
+        await send_enrollment_confirm(student.email, student.name, course.title)
+
+    return {"message": "Enrollment successful and email sent"}
 
 @router.get("/")
 def list_courses(db: Session = Depends(get_db)):
     results = db.query(Course.id, Course.title, Course.description, Course.price, User.name.label("teacher_name"), Course.teacher_id).join(User, Course.teacher_id == User.id).all()
     return [{"id": r.id, "title": r.title, "description": r.description, "price": r.price, "teacher": r.teacher_name, "teacher_id": r.teacher_id} for r in results]
 
-# --- NEW PUT ENDPOINT ---
 @router.put("/{course_id}")
 def update_course(course_id: int, course_data: CourseUpdate, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()

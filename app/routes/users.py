@@ -4,11 +4,14 @@ from app.models import User, Course, Enrollment
 from app.schemas import UserCreate
 from app.database import get_db
 from app.routes.auth import get_password_hash
+# 👇 NEW: Import Welcome Email
+from app.email_utils import send_welcome_email
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+# 👇 CHANGED to 'async def'
 @router.post("/")
-def add_user(user: UserCreate, db: Session = Depends(get_db)):
+async def add_user(user: UserCreate, db: Session = Depends(get_db)):
     # 1. Check if email exists
     if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -26,6 +29,11 @@ def add_user(user: UserCreate, db: Session = Depends(get_db)):
     db.add(u)
     db.commit()
     db.refresh(u)
+
+    # 👇 SEND WELCOME EMAIL
+    if u.email:
+        await send_welcome_email(u.email, u.name)
+
     return u
 
 @router.get("/")
