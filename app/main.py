@@ -175,3 +175,29 @@ def factory_reset(db: Session = Depends(get_db)):
     db.add(course)
     db.commit()
     return {"message": "Reset Done."}
+
+
+# --- 👇 PASTE THIS AT THE BOTTOM OF app/main.py ---
+from app.email_utils import send_email
+
+@app.get("/debug/test-email")
+async def test_email_connection():
+    try:
+        # 1. Print settings to Console (Logs) to verify they exist
+        print("--- DEBUG EMAIL SETTINGS ---")
+        print(f"User: {os.getenv('MAIL_USERNAME')}")
+        print(f"From: {os.getenv('MAIL_FROM')}")
+        print("Password: ", "EXISTS" if os.getenv("MAIL_PASSWORD") else "MISSING")
+        
+        # 2. Try to send a real email synchronously (so we see errors)
+        await send_email(
+            subject="Test Email from Render",
+            recipients=["leelanjans828@gmail.com"], # Sends to yourself
+            body="<h1>It Works!</h1><p>If you see this, email is fixed.</p>"
+        )
+        return {"message": "Email sent successfully! Check your inbox."}
+    
+    except Exception as e:
+        # 3. If it fails, RETURN THE ERROR to the browser
+        print(f"❌ EMAIL ERROR: {str(e)}")
+        return {"status": "failed", "error": str(e)}
