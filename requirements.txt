@@ -6,3 +6,6 @@ jinja2
 python-multipart
 a2wsgi
 fastapi-mail
+passlib[bcrypt]
+python-jose[cryptography]
+psycopg2-binary
