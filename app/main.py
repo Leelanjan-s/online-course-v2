@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
