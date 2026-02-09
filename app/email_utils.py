@@ -1,14 +1,15 @@
+import os
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- EMAIL CONFIGURATION ---
 conf = ConnectionConfig(
-    MAIL_USERNAME="leelanjans828@gmail.com",
-    
-    # 🔴 UPDATED PASSWORD (Spaces removed)
-    MAIL_PASSWORD="sdujhruuyouppqxw", 
-    
-    MAIL_FROM="leelanjans828@gmail.com",
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME", "leelanjans828@gmail.com"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),  # This now reads from Render settings
+    MAIL_FROM=os.getenv("MAIL_FROM", "leelanjans828@gmail.com"),
     MAIL_PORT=587,
     MAIL_SERVER="smtp.gmail.com",
     MAIL_STARTTLS=True,
@@ -50,6 +51,9 @@ async def send_login_alert(email: str, name: str):
     await send_email("New Login Detected", [email], html)
 
 async def send_enrollment_confirm(email: str, name: str, course_title: str, teacher_name: str, price: float):
+    # This link now points to your LIVE website, not localhost
+    dashboard_link = "https://online-course-v2.onrender.com/student/dashboard"
+    
     html = f"""
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
         <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #4F46E5;">
@@ -66,7 +70,7 @@ async def send_enrollment_confirm(email: str, name: str, course_title: str, teac
             </div>
             <p>Your learning journey begins now.</p>
             <div style="text-align: center; margin-top: 30px;">
-                <a href="http://127.0.0.1:8001/student/dashboard" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Dashboard</a>
+                <a href="{dashboard_link}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Dashboard</a>
             </div>
         </div>
     </div>
