@@ -10,11 +10,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
     
-    .card-hover:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    }
-    
+    .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
     .playlist-scroll::-webkit-scrollbar { width: 6px; }
     .playlist-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
   </style>
@@ -116,12 +112,11 @@
         return images[id % images.length];
     }
 
-    // --- NEW: FILTER FUNCTION ---
     function filterCourses() {
         const input = document.getElementById('searchInput');
         const filter = input.value.toLowerCase();
         const catalog = document.getElementById('catalog');
-        const cards = catalog.getElementsByClassName('course-card'); // We added this class to cards below
+        const cards = catalog.getElementsByClassName('course-card'); 
         const noResults = document.getElementById('noResults');
         let hasVisible = false;
 
@@ -173,7 +168,7 @@
                 const isOwned = myCourseIds.includes(c.id);
                 const imgSrc = getCourseImage(c.id);
                 
-                // Added 'course-card' class and data attributes for the search filter
+                // --- REDIRECTION TO CHECKOUT PAGE ON CLICK ---
                 catalog.innerHTML += `
                     <div class="course-card bg-white rounded-xl shadow-md overflow-hidden card-hover transition-all duration-300 border border-gray-100 flex flex-col h-full"
                          data-title="${c.title}" 
@@ -195,7 +190,7 @@
                                          <span class="text-xs text-gray-400 block">Price</span>
                                          <span class="text-xl font-bold text-gray-900">₹${c.price}</span>
                                        </div>
-                                       <button onclick="buyCourse(${c.id}, ${c.price})" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-lg shadow-indigo-200">
+                                       <button onclick="buyCourse(${c.id}, ${c.price}, '${c.title}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-lg shadow-indigo-200">
                                          Enroll
                                        </button>`
                                 }
@@ -209,7 +204,7 @@
     async function openPlayer(id, title) {
         document.getElementById("catalog").classList.add("hidden");
         document.getElementById("heroSection").classList.add("hidden");
-        document.getElementById("noResults").classList.add("hidden"); // Hide msg if open
+        document.getElementById("noResults").classList.add("hidden"); 
         document.getElementById("learningArea").classList.remove("hidden");
         document.getElementById("courseTitle").innerText = title;
 
@@ -265,7 +260,6 @@
         loadCourses(); 
     }
 
-    // --- PLAY & QUIZ LOGIC (SAME AS BEFORE) ---
     function playVideo(index, cId, element) {
         highlightItem(element);
         const v = courseData.videos[index];
@@ -324,20 +318,10 @@
         el.querySelector('.fa-circle')?.classList.add('fa-circle-check');
     }
 
-    async function buyCourse(id, price) {
-        if(confirm(`Enroll for ₹${price}? (Mock Payment)`)) {
-             await fetch("/payments/mock_success", {
-                method: "POST", headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({
-                    student_id: studentId, course_id: id,
-                    razorpay_payment_id: "mock_" + Date.now(),
-                    razorpay_order_id: "mock_" + Date.now(),
-                    razorpay_signature: "mock_" + Date.now()
-                })
-            });
-            alert("Enrollment Successful!");
-            location.reload();
-        }
+    // --- UPDATED: REDIRECT TO FAKE CHECKOUT PAGE ---
+    function buyCourse(id, price, title) {
+        // Redirect to our new mock checkout page with details in the URL
+        window.location.href = `/checkout?course_id=${id}&price=${price}&title=${encodeURIComponent(title)}`;
     }
 
     loadCourses();

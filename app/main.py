@@ -1,12 +1,9 @@
-import razorpay
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
-from fastapi import BackgroundTasks 
 from app.email_utils import send_enrollment_confirm
 from app.database import Base, engine, get_db
 from app.routes import users, courses, auth
@@ -24,11 +21,6 @@ app.include_router(courses.router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- CONFIG ---
-RAZORPAY_KEY_ID = "rzp_test_PLACEHOLDER" 
-RAZORPAY_KEY_SECRET = "PLACEHOLDER"
-client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-
 # --- ROUTES ---
 @app.get("/", response_class=HTMLResponse)
 def login_page(): return (BASE_DIR / "templates/login.html").read_text()
@@ -42,41 +34,33 @@ def student_dash(): return (BASE_DIR / "templates/student_dashboard.html").read_
 @app.get("/teacher/dashboard", response_class=HTMLResponse)
 def teacher_dash(): return (BASE_DIR / "templates/teacher_dashboard.html").read_text()
 
+# --- NEW CHECKOUT ROUTE ---
+@app.get("/checkout", response_class=HTMLResponse)
+def checkout_page():
+    return (BASE_DIR / "templates/checkout.html").read_text()
+
 @app.get("/enrollments/")
 def get_enrollments(db: Session = Depends(get_db)):
     return db.query(Enrollment).all()
 
-# --- PAYMENT ---
-class OrderRequest(BaseModel):
-    amount: float
-    currency: str = "INR"
-
-class VerifyPayment(BaseModel):
-    razorpay_payment_id: str
-    razorpay_order_id: str
-    razorpay_signature: str
+# --- MOCK PAYMENT MODEL ---
+class MockPayment(BaseModel):
     course_id: int
     student_id: int
+    amount: float
 
-@app.post("/payments/create_order")
-def create_order(order: OrderRequest):
-    return {"order_id": "mock_order_id", "key": "mock_key"}
-
-@app.post("/payments/verify")
-def verify_payment(data: VerifyPayment):
-    return {"message": "Verified"}
-
+# --- MOCK SUCCESS ENDPOINT ---
 @app.post("/payments/mock_success")
-def mock_payment_success(data: VerifyPayment, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def mock_payment_success(data: MockPayment, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # 1. Check if enrollment exists
     exists = db.query(Enrollment).filter_by(student_id=data.student_id, course_id=data.course_id).first()
     
     if not exists:
-        # 2. Create Enrollment
+        # 2. Create Enrollment with Fake Transaction ID
         enrollment = Enrollment(
             student_id=data.student_id, 
             course_id=data.course_id, 
-            transaction_id="mock_" + data.razorpay_payment_id,
+            transaction_id=f"PAY_{data.course_id}_{data.student_id}_MOCK",
             completed_videos="",
             completed_quizzes=""
         )
@@ -87,8 +71,7 @@ def mock_payment_success(data: VerifyPayment, background_tasks: BackgroundTasks,
         student = db.query(User).filter(User.id == data.student_id).first()
         course = db.query(Course).filter(Course.id == data.course_id).first()
         
-        # Fetch Teacher Name
-        teacher_name = "ProLearn Instructor" # Default fallback
+        teacher_name = "ProLearn Instructor"
         if course:
             teacher = db.query(User).filter(User.id == course.teacher_id).first()
             if teacher:
@@ -105,10 +88,9 @@ def mock_payment_success(data: VerifyPayment, background_tasks: BackgroundTasks,
                 price=course.price
             )
 
-    return {"message": "Mock Enrollment Successful!"}
-    return {"message": "Mock Enrollment Successful!"}
+    return {"message": "Enrollment Successful"}
 
-# --- PROGRESS & STATS (THE FIX) ---
+# --- PROGRESS & STATS ---
 class ProgressUpdate(BaseModel):
     student_id: int
     course_id: int
@@ -120,9 +102,7 @@ def mark_progress(data: ProgressUpdate, db: Session = Depends(get_db)):
     enrollment = db.query(Enrollment).filter_by(student_id=data.student_id, course_id=data.course_id).first()
     if not enrollment: raise HTTPException(404, detail="Not Found")
     
-    # Logic to append ID to CSV string
     current = enrollment.completed_videos if data.type == "video" else enrollment.completed_quizzes
-    # Ensure current is a string (handle None)
     if current is None: current = ""
     
     if str(data.item_id) not in current.split(","):
@@ -139,21 +119,15 @@ def get_teacher_stats(teacher_id: int, db: Session = Depends(get_db)):
     
     for course in courses:
         enrollments = db.query(Enrollment).filter(Enrollment.course_id == course.id).all()
-        
-        # 1. Count Totals
         total_vids = db.query(Content).filter(Content.course_id == course.id).count()
         total_quiz = db.query(Quiz).filter(Quiz.course_id == course.id).count()
         total_items = total_vids + total_quiz
 
         for e in enrollments:
-            # 2. Count Completed (Handle None values safely)
             v_str = e.completed_videos if e.completed_videos else ""
             q_str = e.completed_quizzes if e.completed_quizzes else ""
-            
             done_v = len([x for x in v_str.split(",") if x])
             done_q = len([x for x in q_str.split(",") if x])
-            
-            # 3. Calculate Percentage
             percent = 0
             if total_items > 0:
                 percent = int(((done_v + done_q) / total_items) * 100)
@@ -162,7 +136,7 @@ def get_teacher_stats(teacher_id: int, db: Session = Depends(get_db)):
                 "student_name": e.student.name,
                 "course_title": course.title,
                 "video_stats": f"{done_v}/{total_vids}",
-                "quiz_stats": f"{done_q}/{total_quiz}",  # <--- Added this
+                "quiz_stats": f"{done_q}/{total_quiz}",
                 "percent": percent
             })
     return stats
@@ -200,5 +174,4 @@ def factory_reset(db: Session = Depends(get_db)):
     course = Course(title="Python Mastery", description="Learn Python", price=49.99, teacher_id=teacher.id)
     db.add(course)
     db.commit()
-    
     return {"message": "Reset Done."}
