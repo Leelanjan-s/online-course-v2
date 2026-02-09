@@ -5,10 +5,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- EMAIL CONFIGURATION ---
+# --- 1. CONFIGURATION (This is the part you asked about) ---
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME", "leelanjans828@gmail.com"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),  # This now reads from Render settings
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),  
     MAIL_FROM=os.getenv("MAIL_FROM", "leelanjans828@gmail.com"),
     MAIL_PORT=587,
     MAIL_SERVER="smtp.gmail.com",
@@ -28,51 +28,37 @@ async def send_email(subject: str, recipients: list[EmailStr], body: str):
     fm = FastMail(conf)
     await fm.send_message(message)
 
-# --- TEMPLATES ---
+# --- 2. EMAIL TEMPLATES ---
 
 async def send_welcome_email(email: str, name: str):
     html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h2 style="color: #4F46E5;">Welcome to ProLearn, {name}! 🚀</h2>
         <p>You have successfully created your account.</p>
-        <p>Explore our catalog and start building your future today.</p>
     </div>
     """
     await send_email("Welcome to ProLearn!", [email], html)
 
-async def send_login_alert(email: str, name: str):
+async def send_enrollment_confirm(email: str, name: str, course_title: str):
     html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h3>🔐 Security Alert</h3>
-        <p>Hello {name},</p>
-        <p>We noticed a new login to your ProLearn account.</p>
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #4F46E5;">Enrollment Confirmed! 🎓</h2>
+        <p>Hi {name},</p>
+        <p>You have successfully enrolled in <strong>{course_title}</strong>.</p>
+        <p>Happy Learning!</p>
     </div>
     """
-    await send_email("New Login Detected", [email], html)
+    await send_email(f"Enrollment: {course_title}", [email], html)
 
-async def send_enrollment_confirm(email: str, name: str, course_title: str, teacher_name: str, price: float):
-    # This link now points to your LIVE website, not localhost
-    dashboard_link = "https://online-course-v2.onrender.com/student/dashboard"
-    
+# 👇 NEW: This sends the email to the Teacher
+async def send_teacher_assigned_email(email: str, teacher_name: str, course_title: str):
     html = f"""
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #4F46E5;">
-            <h1 style="color: #4F46E5; margin: 0;">ProLearn</h1>
-            <p style="color: #666; margin-top: 5px;">Enrollment Confirmation</p>
-        </div>
-        <div style="padding: 20px 0;">
-            <p style="font-size: 16px;">Hi <strong>{name}</strong>,</p>
-            <p>Thank you for enrolling! You have successfully secured your spot in:</p>
-            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #4F46E5;">
-                <h2 style="margin: 0; color: #1f2937;">{course_title}</h2>
-                <p style="margin: 5px 0 0; color: #6b7280;">Instructor: <strong>{teacher_name}</strong></p>
-                <p style="margin: 5px 0 0; color: #6b7280;">Amount Paid: <strong>₹{price}</strong></p>
-            </div>
-            <p>Your learning journey begins now.</p>
-            <div style="text-align: center; margin-top: 30px;">
-                <a href="{dashboard_link}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Dashboard</a>
-            </div>
-        </div>
+    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
+        <h2 style="color: #4F46E5;">New Course Assignment 👨‍🏫</h2>
+        <p>Hello <strong>{teacher_name}</strong>,</p>
+        <p>You have been assigned as the instructor for:</p>
+        <h3 style="background-color: #f3f4f6; padding: 10px;">{course_title}</h3>
+        <p>Login to your dashboard to start adding content.</p>
     </div>
     """
-    await send_email(f"🎓 Enrollment Confirmed: {course_title}", [email], html)
+    await send_email(f"Course Assigned: {course_title}", [email], html)
