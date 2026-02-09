@@ -1,29 +1,26 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from app.models import Course, User, Content, Quiz, Enrollment
 from app.schemas import CourseCreate, ContentCreate, QuizCreate
 from app.database import get_db
-# 👇 NEW: Import the email functions
 from app.email_utils import send_teacher_assigned_email, send_enrollment_confirm
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
-# --- Schema for Updating ---
 class CourseUpdate(BaseModel):
     title: str
     description: str
     price: float
     teacher_id: int
 
-# --- Schema for Enrollment ---
 class EnrollmentRequest(BaseModel):
     student_id: int
 
-# 👇 CHANGED to 'async def' to allow email sending
+# 👇 UPDATE: Added BackgroundTasks
 @router.post("/")
-async def create_course(course: CourseCreate, db: Session = Depends(get_db)):
+def create_course(course: CourseCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     teacher = db.query(User).filter(User.id == course.teacher_id).first()
     if not teacher or teacher.role != "Teacher":
         raise HTTPException(status_code=400, detail="Invalid Teacher ID")
@@ -33,38 +30,36 @@ async def create_course(course: CourseCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(c)
 
-    # 👇 SEND EMAIL TO TEACHER
+    # 👇 FIX: Use background_tasks (Safer)
     if teacher.email:
-        await send_teacher_assigned_email(teacher.email, teacher.name, c.title)
+        background_tasks.add_task(send_teacher_assigned_email, teacher.email, teacher.name, c.title)
 
     return c
 
-# 👇 NEW ENDPOINT: Enrolls a student and sends the email
 @router.post("/{course_id}/enroll")
-async def enroll_student(course_id: int, enrollment: EnrollmentRequest, db: Session = Depends(get_db)):
-    # 1. Check if course exists
+def enroll_student(course_id: int, enrollment: EnrollmentRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    if not course: raise HTTPException(status_code=404, detail="Course not found")
 
-    # 2. Check if student exists
     student = db.query(User).filter(User.id == enrollment.student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+    if not student: raise HTTPException(status_code=404, detail="Student not found")
 
-    # 3. Check if already enrolled
     existing = db.query(Enrollment).filter(Enrollment.student_id == student.id, Enrollment.course_id == course.id).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Already enrolled")
+    if existing: raise HTTPException(status_code=400, detail="Already enrolled")
 
-    # 4. Create Enrollment
     new_enrollment = Enrollment(student_id=student.id, course_id=course.id)
     db.add(new_enrollment)
     db.commit()
 
-    # 👇 SEND EMAIL TO STUDENT
+    # 👇 FIX: Use background_tasks (Safer)
     if student.email:
-        await send_enrollment_confirm(student.email, student.name, course.title)
+        # We pass teacher name and price to match the new email_utils signature
+        teacher_name = "ProLearn Instructor"
+        if course.teacher_id:
+            teacher = db.query(User).filter(User.id == course.teacher_id).first()
+            if teacher: teacher_name = teacher.name
+            
+        background_tasks.add_task(send_enrollment_confirm, student.email, student.name, course.title, teacher_name, course.price)
 
     return {"message": "Enrollment successful and email sent"}
 
@@ -76,14 +71,12 @@ def list_courses(db: Session = Depends(get_db)):
 @router.put("/{course_id}")
 def update_course(course_id: int, course_data: CourseUpdate, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    if not course: raise HTTPException(status_code=404, detail="Course not found")
     
     course.title = course_data.title
     course.description = course_data.description
     course.price = course_data.price
     course.teacher_id = course_data.teacher_id
-    
     db.commit()
     db.refresh(course)
     return {"message": "Course updated successfully"}
@@ -91,14 +84,11 @@ def update_course(course_id: int, course_data: CourseUpdate, db: Session = Depen
 @router.delete("/{course_id}")
 def delete_course(course_id: int, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    
+    if not course: raise HTTPException(status_code=404, detail="Course not found")
     db.delete(course)
     db.commit()
     return {"message": "Course deleted"}
 
-# --- Content & Quizzes ---
 @router.post("/{course_id}/content")
 def add_content(course_id: int, content: ContentCreate, db: Session = Depends(get_db)):
     c = Content(**content.dict(), course_id=course_id)

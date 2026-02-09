@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from app.database import get_db
 from app.models import User
-# --- FIX: Import the CORRECT function names ---
 from app.email_utils import send_welcome_email, send_login_alert
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -27,12 +26,15 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
+# --- SIGNUP ROUTE ---
 @router.post("/signup")
 def signup(user: SignupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # 1. Check if email exists
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # 2. Create User
     hashed_pw = get_password_hash(user.password)
     new_user = User(
         name=user.name, 
@@ -45,11 +47,13 @@ def signup(user: SignupRequest, background_tasks: BackgroundTasks, db: Session =
     db.commit()
     db.refresh(new_user)
     
-    # --- FIX: Use the specific welcome email function ---
-    background_tasks.add_task(send_welcome_email, user.email, user.name)
+    # 👇 SEND WELCOME EMAIL (Works for Teacher & Student)
+    if new_user.email:
+        background_tasks.add_task(send_welcome_email, new_user.email, new_user.name)
     
     return {"message": "User created successfully"}
 
+# --- LOGIN ROUTE ---
 @router.post("/login")
 def login(creds: LoginRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == creds.email).first()
@@ -57,8 +61,9 @@ def login(creds: LoginRequest, background_tasks: BackgroundTasks, db: Session = 
     if not user or not verify_password(creds.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
-    # --- FIX: Use the specific login alert function ---
-    background_tasks.add_task(send_login_alert, user.email, user.name)
+    # 👇 SEND LOGIN ALERT (Works for Teacher & Student)
+    if user.email:
+        background_tasks.add_task(send_login_alert, user.email, user.name)
 
     return {
         "message": "Login successful", 

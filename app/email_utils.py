@@ -7,9 +7,9 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME", "leelanjans828@gmail.com"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),  # Reads from Render Environment
-    MAIL_FROM=os.getenv("MAIL_FROM", "leelanjans828@gmail.com"),
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
     MAIL_PORT=587,
     MAIL_SERVER="smtp.gmail.com",
     MAIL_STARTTLS=True,
@@ -39,7 +39,6 @@ async def send_welcome_email(email: str, name: str):
     """
     await send_email("Welcome to ProLearn!", [email], html)
 
-# 👇 RESTORED: This was missing in the last step!
 async def send_login_alert(email: str, name: str):
     html = f"""
     <div style="font-family: Arial, sans-serif; padding: 20px;">
@@ -50,13 +49,18 @@ async def send_login_alert(email: str, name: str):
     """
     await send_email("New Login Detected", [email], html)
 
-async def send_enrollment_confirm(email: str, name: str, course_title: str):
+# 👇 FIX: Added teacher_name and price to match main.py
+async def send_enrollment_confirm(email: str, name: str, course_title: str, teacher_name: str = "ProLearn", price: float = 0.0):
     html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
         <h2 style="color: #4F46E5;">Enrollment Confirmed! 🎓</h2>
-        <p>Hi {name},</p>
-        <p>You have successfully enrolled in <strong>{course_title}</strong>.</p>
-        <p>Happy Learning!</p>
+        <p>Hi <strong>{name}</strong>,</p>
+        <p>You are now enrolled in:</p>
+        <h3 style="background-color: #f3f4f6; padding: 15px;">{course_title}</h3>
+        <p><strong>Instructor:</strong> {teacher_name}</p>
+        <p><strong>Amount Paid:</strong> ₹{price}</p>
+        <br>
+        <a href="https://online-course-v2.onrender.com/student/dashboard" style="background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
     </div>
     """
     await send_email(f"Enrollment: {course_title}", [email], html)
