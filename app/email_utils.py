@@ -5,15 +5,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- CONFIGURATION ---
+# --- CONFIGURATION (UPDATED FOR PORT 465) ---
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
     MAIL_FROM=os.getenv("MAIL_FROM"),
-    MAIL_PORT=587,
+    
+    # 👇 CHANGE THESE 3 LINES TO FIX THE TIMEOUT
+    MAIL_PORT=465,             # Changed from 587
+    MAIL_SSL_TLS=True,         # Changed from False
+    MAIL_STARTTLS=False,       # Changed from True
+    
     MAIL_SERVER="smtp.gmail.com",
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=True
 )
@@ -49,7 +52,6 @@ async def send_login_alert(email: str, name: str):
     """
     await send_email("New Login Detected", [email], html)
 
-# 👇 FIX: Added teacher_name and price to match main.py
 async def send_enrollment_confirm(email: str, name: str, course_title: str, teacher_name: str = "ProLearn", price: float = 0.0):
     html = f"""
     <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
