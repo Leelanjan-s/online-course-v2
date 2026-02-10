@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from app.email_utils import send_enrollment_confirm, send_email
+from app.email_utils import send_enrollment_confirm, send_email, send_welcome_email
 from app.database import Base, engine, get_db
 from app.routes import users, courses, auth
 from app.models import User, Course, Enrollment, Content, Quiz
@@ -192,3 +192,9 @@ def nuke_database():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     return {"message": "Database completely reset. All tables recreated."}
+
+@app.get("/test-email")
+async def debug_email():
+    # Sends a test email to yourself
+    await send_welcome_email("leelanjans828@gmail.com", "Test User")
+    return {"message": "Email sent command executed. Check Railway logs for 'Brevo Response'."}
