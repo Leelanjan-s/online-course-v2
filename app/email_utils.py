@@ -5,18 +5,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 👇 FORCE PORT 465 (SSL Mode)
+# We use smtp.googlemail.com to bypass potential blocks
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
     MAIL_FROM=os.getenv("MAIL_FROM"),
     
-    # 👇 FORCE PORT 587 (The Standard "Unlocked" Port)
-    MAIL_PORT=587,
-    MAIL_SERVER="smtp.gmail.com",
+    # 👇 UPDATED SETTINGS
+    MAIL_PORT=465,
+    MAIL_SERVER="smtp.googlemail.com", # 👈 The "Magic" Alias
     
-    # 👇 CRITICAL SETTINGS FOR 587 (Do not change these!)
-    MAIL_STARTTLS=True,   # Must be TRUE
-    MAIL_SSL_TLS=False,   # Must be FALSE
+    # 👇 CRITICAL FOR PORT 465
+    MAIL_STARTTLS=False,  # Must be FALSE
+    MAIL_SSL_TLS=True,    # Must be TRUE
     
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=False 
@@ -34,7 +36,6 @@ async def send_email(subject: str, recipients: list[EmailStr], body: str):
 
 # 👇 Verification Email
 async def send_verification_email(email: str, token: str):
-    # This link points to your Render App
     verify_url = f"https://online-course-v2.onrender.com/auth/verify?token={token}"
     
     html = f"""
@@ -43,8 +44,6 @@ async def send_verification_email(email: str, token: str):
         <p>Welcome! Please click the button below to activate your account.</p>
         <br>
         <a href="{verify_url}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email</a>
-        <br><br>
-        <p style="font-size: 12px; color: gray;">If you did not sign up, ignore this email.</p>
     </div>
     """
     await send_email("Action Required: Verify Email", [email], html)
