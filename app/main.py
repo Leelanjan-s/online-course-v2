@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+# ✅ CORRECT IMPORTS
 from app.email_utils import send_enrollment_confirm, send_email, send_welcome_email
 from app.database import Base, engine, get_db
 from app.routes import users, courses, auth

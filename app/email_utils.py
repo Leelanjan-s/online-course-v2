@@ -7,14 +7,14 @@ load_dotenv()
 
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
-# 🔴 FIX: Hardcode this to match your Brevo Login EXACTLY.
-# Do not use os.getenv("MAIL_USERNAME") here because Railway has the wrong value.
+# 🔴 HARDCODED FIX: Using your verified Gmail directly
 SENDER_EMAIL = "leelanjans828@gmail.com" 
 SENDER_NAME = "ProLearn Admin"
 
 def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str):
+    # 🔍 DEBUG PRINT 1: Check if Key exists
     if not BREVO_API_KEY:
-        print("❌ Error: BREVO_API_KEY is missing.")
+        print("❌ Error: BREVO_API_KEY is missing in Environment.")
         return
 
     url = "https://api.brevo.com/v3/smtp/email"
@@ -32,7 +32,7 @@ def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: st
     
     try:
         response = requests.post(url, headers=headers, data=json.dumps(payload))
-        # 🔍 Print the REAL error from Brevo so we can see it in logs
+        # 🔍 DEBUG PRINT 2: The most important line
         print(f"📨 Brevo Response: {response.status_code} - {response.text}") 
     except Exception as e:
         print(f"❌ Network Error: {e}")

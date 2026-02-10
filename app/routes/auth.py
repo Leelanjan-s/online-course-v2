@@ -1,11 +1,12 @@
 import secrets
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from passlib.context import CryptContext
 from app.database import get_db
 from app.models import User
+# ✅ ADDED: Import the email functions
+from app.email_utils import send_welcome_email, send_login_alert
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -48,16 +49,22 @@ async def signup(user: SignupRequest, background_tasks: BackgroundTasks, db: Ses
     db.commit()
     db.refresh(new_user)
     
+    # ✅ ADDED: Actually send the email now!
+    if new_user.email:
+        background_tasks.add_task(send_welcome_email, new_user.email, new_user.name)
     
-    return {"message": "Account created successfully. You can login now."}
+    return {"message": "Account created successfully. Welcome email sent!"}
 
 @router.post("/login")
-def login(creds: LoginRequest, db: Session = Depends(get_db)):
+def login(creds: LoginRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == creds.email).first()
     
     if not user or not verify_password(creds.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
+    # ✅ ADDED: Send login alert
+    if user.email:
+        background_tasks.add_task(send_login_alert, user.email, user.name)
 
     return {
         "message": "Login successful", 
@@ -66,6 +73,6 @@ def login(creds: LoginRequest, db: Session = Depends(get_db)):
         "name": user.name 
     }
 
-@router.get("/verify", response_class=HTMLResponse)
+@router.get("/verify")
 async def verify_email(token: str):
-    return "<h1 style='color:green; text-align:center;'>Already Verified! ✅</h1>"
+    return "Already Verified! ✅"
