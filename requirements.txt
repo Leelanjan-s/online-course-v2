@@ -4,10 +4,9 @@ sqlalchemy
 pydantic
 jinja2
 python-multipart
-a2wsgi
-fastapi-mail
-passlib
-bcrypt==4.0.1
+passlib[bcrypt]
 python-jose[cryptography]
 psycopg2-binary
 stripe
+requests
+python-dotenv
