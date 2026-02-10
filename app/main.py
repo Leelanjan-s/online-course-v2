@@ -1,11 +1,12 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+import stripe
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from app.email_utils import send_enrollment_confirm
+from app.email_utils import send_enrollment_confirm, send_email
 from app.database import Base, engine, get_db
 from app.routes import users, courses, auth
 from app.models import User, Course, Enrollment, Content, Quiz
@@ -22,7 +23,17 @@ app.include_router(courses.router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- ROUTES ---
+# --- STRIPE CONFIGURATION ---
+# 👇 PASTE YOUR KEYS HERE
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+
+if not STRIPE_SECRET_KEY:
+    print("⚠️ WARNING: Stripe Keys are missing! Check your .env file.")
+
+stripe.api_key = STRIPE_SECRET_KEY
+
+# --- PAGE ROUTES ---
 @app.get("/", response_class=HTMLResponse)
 def login_page(): return (BASE_DIR / "templates/login.html").read_text()
 
@@ -35,61 +46,90 @@ def student_dash(): return (BASE_DIR / "templates/student_dashboard.html").read_
 @app.get("/teacher/dashboard", response_class=HTMLResponse)
 def teacher_dash(): return (BASE_DIR / "templates/teacher_dashboard.html").read_text()
 
-# --- NEW CHECKOUT ROUTE ---
 @app.get("/checkout", response_class=HTMLResponse)
-def checkout_page():
-    return (BASE_DIR / "templates/checkout.html").read_text()
+def checkout_page(): return (BASE_DIR / "templates/checkout.html").read_text()
 
 @app.get("/enrollments/")
 def get_enrollments(db: Session = Depends(get_db)):
     return db.query(Enrollment).all()
 
-# --- MOCK PAYMENT MODEL ---
-class MockPayment(BaseModel):
+
+# --- STRIPE PAYMENT ROUTES ---
+
+class StripeCheckoutRequest(BaseModel):
     course_id: int
     student_id: int
-    amount: float
+    price: float
+    course_title: str
 
-# --- MOCK SUCCESS ENDPOINT ---
-@app.post("/payments/mock_success")
-def mock_payment_success(data: MockPayment, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    # 1. Check if enrollment exists
-    exists = db.query(Enrollment).filter_by(student_id=data.student_id, course_id=data.course_id).first()
-    
+@app.post("/create-checkout-session")
+def create_checkout_session(data: StripeCheckoutRequest):
+    try:
+        # Create a Stripe Checkout Session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'inr',
+                    'product_data': {
+                        'name': data.course_title,
+                    },
+                    'unit_amount': int(data.price * 100), # Amount in paisa
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            # 👇 Redirect URLs (Points to Localhost for testing)
+            # 👇 UPDATED FOR RENDER DEPLOYMENT
+            success_url=f"https://online-course-v2.onrender.com/payment/success?session_id={{CHECKOUT_SESSION_ID}}&course_id={data.course_id}&student_id={data.student_id}",
+            cancel_url="https://online-course-v2.onrender.com/student/dashboard",
+        )
+        return {"url": checkout_session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/payment/success")
+def payment_success(session_id: str, course_id: int, student_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # 1. Verify Payment with Stripe
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        if session.payment_status != 'paid':
+            raise HTTPException(status_code=400, detail="Payment failed")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid Session")
+
+    # 2. Check Enrollment
+    exists = db.query(Enrollment).filter_by(student_id=student_id, course_id=course_id).first()
     if not exists:
-        # 2. Create Enrollment with Fake Transaction ID
+        # 3. Enroll Student
         enrollment = Enrollment(
-            student_id=data.student_id, 
-            course_id=data.course_id, 
-            transaction_id=f"PAY_{data.course_id}_{data.student_id}_MOCK",
+            student_id=student_id, 
+            course_id=course_id, 
+            transaction_id=f"STRIPE_{session.payment_intent}",
             completed_videos="",
             completed_quizzes=""
         )
         db.add(enrollment)
         db.commit()
-        
-        # 3. FETCH DETAILS FOR EMAIL
-        student = db.query(User).filter(User.id == data.student_id).first()
-        course = db.query(Course).filter(Course.id == data.course_id).first()
+
+        # 4. Send Email
+        student = db.query(User).filter(User.id == student_id).first()
+        course = db.query(Course).filter(Course.id == course_id).first()
         
         teacher_name = "ProLearn Instructor"
-        if course:
-            teacher = db.query(User).filter(User.id == course.teacher_id).first()
-            if teacher:
-                teacher_name = teacher.name
-
-        # 4. SEND EMAIL
+        if course.teacher_id:
+            t = db.query(User).filter(User.id == course.teacher_id).first()
+            if t: teacher_name = t.name
+            
         if student and course:
             background_tasks.add_task(
                 send_enrollment_confirm, 
-                email=student.email, 
-                name=student.name, 
-                course_title=course.title, 
-                teacher_name=teacher_name,
-                price=course.price
+                student.email, student.name, course.title, teacher_name, course.price
             )
 
-    return {"message": "Enrollment Successful"}
+    # 5. Redirect to Dashboard with Success Message
+    return RedirectResponse(url="/student/dashboard")
+
 
 # --- PROGRESS & STATS ---
 class ProgressUpdate(BaseModel):
@@ -177,10 +217,7 @@ def factory_reset(db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Reset Done."}
 
-
-# --- 👇 PASTE THIS AT THE BOTTOM OF app/main.py ---
-from app.email_utils import send_email
-
+# --- DEBUG EMAIL ROUTE ---
 @app.get("/debug/test-email")
 async def test_email_connection():
     try:
@@ -190,15 +227,14 @@ async def test_email_connection():
         print(f"From: {os.getenv('MAIL_FROM')}")
         print("Password: ", "EXISTS" if os.getenv("MAIL_PASSWORD") else "MISSING")
         
-        # 2. Try to send a real email synchronously (so we see errors)
+        # 2. Try to send a real email synchronously
         await send_email(
             subject="Test Email from Render",
-            recipients=["leelanjans828@gmail.com"], # Sends to yourself
+            recipients=["leelanjans828@gmail.com"],
             body="<h1>It Works!</h1><p>If you see this, email is fixed.</p>"
         )
         return {"message": "Email sent successfully! Check your inbox."}
     
     except Exception as e:
-        # 3. If it fails, RETURN THE ERROR to the browser
         print(f"❌ EMAIL ERROR: {str(e)}")
         return {"status": "failed", "error": str(e)}

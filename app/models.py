@@ -10,6 +10,8 @@ class User(Base):
     password_hash = Column(String)
     role = Column(String)
     is_verified = Column(Boolean, default=False)
+    # 👇 NEW: Stores the unique code sent to email
+    verification_token = Column(String, nullable=True)
 
 class Course(Base):
     __tablename__ = "courses"
@@ -48,7 +50,6 @@ class Enrollment(Base):
     course_id = Column(Integer, ForeignKey("courses.id"))
     transaction_id = Column(String)
     
-    # NEW: Track Progress (Comma separated IDs, e.g., "1,2,3")
     completed_videos = Column(String, default="")
     completed_quizzes = Column(String, default="")
     
