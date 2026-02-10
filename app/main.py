@@ -184,3 +184,11 @@ def factory_reset(db: Session = Depends(get_db)):
     db.add(course)
     db.commit()
     return {"message": "Reset Done."}
+
+# --- ADD THIS AT THE BOTTOM OF main.py ---
+@app.get("/nuke-db")
+def nuke_database():
+    # ⚠️ WARNING: This deletes all data!
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    return {"message": "Database completely reset. All tables recreated."}
