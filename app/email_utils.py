@@ -28,7 +28,7 @@ async def send_email(subject: str, recipients: list[EmailStr], body: str):
     fm = FastMail(conf)
     await fm.send_message(message)
 
-# 👇 NEW: Verification Email
+# Update email settings
 async def send_verification_email(email: str, token: str):
     # This link points to your Render App
     verify_url = f"https://online-course-v2.onrender.com/auth/verify?token={token}"
