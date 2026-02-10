@@ -1,11 +1,10 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-# --- User Schemas ---
 class UserCreate(BaseModel):
     name: str
     email: str
-    password: str  # Required for signup
+    password: str  
     role: str
 
 class UserResponse(BaseModel):
@@ -20,7 +19,6 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
-# --- Content/Lessons ---
 class ContentCreate(BaseModel):
     title: str
     file_url: str
@@ -31,7 +29,6 @@ class ContentResponse(ContentCreate):
     class Config:
         from_attributes = True
 
-# --- Quizzes ---
 class QuizCreate(BaseModel):
     question: str
     options: str
@@ -42,7 +39,6 @@ class QuizResponse(QuizCreate):
     class Config:
         from_attributes = True
 
-# --- Course Schemas ---
 class CourseCreate(BaseModel):
     title: str
     description: Optional[str] = "No description"
@@ -54,7 +50,7 @@ class CourseResponse(BaseModel):
     title: str
     description: Optional[str] = ""
     price: float
-    teacher: str  # Changed from teacher_id to teacher name for display
+    teacher: str  
     teacher_id: int
     contents: List[ContentResponse] = []
     quizzes: List[QuizResponse] = []

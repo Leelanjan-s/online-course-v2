@@ -18,7 +18,6 @@ class CourseUpdate(BaseModel):
 class EnrollmentRequest(BaseModel):
     student_id: int
 
-# 👇 UPDATE: Added BackgroundTasks
 @router.post("/")
 def create_course(course: CourseCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     teacher = db.query(User).filter(User.id == course.teacher_id).first()
@@ -29,8 +28,6 @@ def create_course(course: CourseCreate, background_tasks: BackgroundTasks, db: S
     db.add(c)
     db.commit()
     db.refresh(c)
-
-    # 👇 FIX: Use background_tasks (Safer)
     if teacher.email:
         background_tasks.add_task(send_teacher_assigned_email, teacher.email, teacher.name, c.title)
 
@@ -51,9 +48,7 @@ def enroll_student(course_id: int, enrollment: EnrollmentRequest, background_tas
     db.add(new_enrollment)
     db.commit()
 
-    # 👇 FIX: Use background_tasks (Safer)
     if student.email:
-        # We pass teacher name and price to match the new email_utils signature
         teacher_name = "ProLearn Instructor"
         if course.teacher_id:
             teacher = db.query(User).filter(User.id == course.teacher_id).first()

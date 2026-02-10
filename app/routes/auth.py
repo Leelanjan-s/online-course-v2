@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from app.database import get_db
 from app.models import User
-# 👇 NEW: Import Verification Email
 from app.email_utils import send_verification_email, send_welcome_email, send_login_alert
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -29,14 +28,12 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-# --- SIGNUP ROUTE ---
 @router.post("/signup")
 async def signup(user: SignupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # 1. Generate Verification Token
     token = secrets.token_urlsafe(16)
 
     hashed_pw = get_password_hash(user.password)
@@ -45,20 +42,18 @@ async def signup(user: SignupRequest, background_tasks: BackgroundTasks, db: Ses
         email=user.email, 
         password_hash=hashed_pw, 
         role=user.role,
-        is_verified=False, # 👈 MANDATORY FALSE
-        verification_token=token # 👈 SAVE TOKEN
+        is_verified=False, 
+        verification_token=token 
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    # 2. Send Verification Email (Not Welcome Email)
     if new_user.email:
         background_tasks.add_task(send_verification_email, new_user.email, token)
     
     return {"message": "Signup successful. Please check your email to verify account."}
 
-# --- LOGIN ROUTE ---
 @router.post("/login")
 def login(creds: LoginRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == creds.email).first()
@@ -66,7 +61,6 @@ def login(creds: LoginRequest, background_tasks: BackgroundTasks, db: Session = 
     if not user or not verify_password(creds.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
-    # 👇 MANDATORY CHECK: Block login if not verified
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Please verify your email first!")
 
@@ -80,7 +74,6 @@ def login(creds: LoginRequest, background_tasks: BackgroundTasks, db: Session = 
         "name": user.name 
     }
 
-# --- NEW: VERIFY EMAIL ROUTE ---
 @router.get("/verify", response_class=HTMLResponse)
 async def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.verification_token == token).first()
@@ -90,12 +83,10 @@ async def verify_email(token: str, background_tasks: BackgroundTasks, db: Sessio
         <h1 style='color:red; text-align:center;'>Invalid or Expired Token ❌</h1>
         """
     
-    # Activate User
     user.is_verified = True
-    user.verification_token = None # Clear token so it can't be used again
+    user.verification_token = None 
     db.commit()
 
-    # Send Welcome Email Now
     if user.email:
         background_tasks.add_task(send_welcome_email, user.email, user.name)
 

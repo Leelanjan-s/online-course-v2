@@ -10,7 +10,6 @@ class User(Base):
     password_hash = Column(String)
     role = Column(String)
     is_verified = Column(Boolean, default=False)
-    # 👇 NEW: Stores the unique code sent to email
     verification_token = Column(String, nullable=True)
 
 class Course(Base):

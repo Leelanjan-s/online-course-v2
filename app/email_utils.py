@@ -1,87 +1,65 @@
-import os
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from pydantic import EmailStr
-from dotenv import load_dotenv
+import secrets
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import HTMLResponse
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from passlib.context import CryptContext
+from app.database import get_db
+from app.models import User
+from app.email_utils import send_verification_email
 
-load_dotenv()
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# 👇 OUTLOOK / HOTMAIL SETTINGS
-conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
-    MAIL_FROM=os.getenv("MAIL_FROM"),
-    
-    # 👇 Outlook uses Port 587
-    MAIL_PORT=587,
-    MAIL_SERVER="smtp.office365.com",
-    
-    # 👇 Standard Security for Outlook
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=False 
-)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-async def send_email(subject: str, recipients: list[EmailStr], body: str):
-    message = MessageSchema(
-        subject=subject,
-        recipients=recipients,
-        body=body,
-        subtype=MessageType.html
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class SignupRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+@router.post("/signup")
+async def signup(user: SignupRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.email == user.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_pw = get_password_hash(user.password)
+    new_user = User(
+        name=user.name, 
+        email=user.email, 
+        password_hash=hashed_pw, 
+        role=user.role,
+        is_verified=True,      
+        verification_token="auto-verified" 
     )
-    fm = FastMail(conf)
-    await fm.send_message(message)
-
-# 👇 Verification Email
-async def send_verification_email(email: str, token: str):
-    verify_url = f"https://online-course-v2.onrender.com/auth/verify?token={token}"
     
-    html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; max-width: 500px;">
-        <h2 style="color: #4F46E5;">Verify Your Account 🔒</h2>
-        <p>Welcome! Please click the button below to activate your account.</p>
-        <br>
-        <a href="{verify_url}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email</a>
-    </div>
-    """
-    await send_email("Action Required: Verify Email", [email], html)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return {"message": "Account created successfully. You can login now."}
 
-async def send_welcome_email(email: str, name: str):
-    html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h2 style="color: #10B981;">Account Verified! ✅</h2>
-        <p>Welcome to ProLearn, {name}. You can now login and explore courses.</p>
-    </div>
-    """
-    await send_email("Welcome to ProLearn!", [email], html)
+@router.post("/login")
+def login(creds: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == creds.email).first()
+    
+    if not user or not verify_password(creds.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-async def send_login_alert(email: str, name: str):
-    html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h3 style="color: #EF4444;">🔐 Security Alert</h3>
-        <p>Hello {name}, we noticed a new login to your account.</p>
-    </div>
-    """
-    await send_email("New Login Detected", [email], html)
-
-async def send_enrollment_confirm(email: str, name: str, course_title: str, teacher_name: str, price: float):
-    html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
-        <h2 style="color: #4F46E5;">Enrollment Confirmed! 🎓</h2>
-        <p>Hi <strong>{name}</strong>,</p>
-        <p>You are now enrolled in <strong>{course_title}</strong>.</p>
-        <p><strong>Instructor:</strong> {teacher_name}</p>
-        <a href="https://online-course-v2.onrender.com/student/dashboard" style="background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
-    </div>
-    """
-    await send_email(f"Enrollment: {course_title}", [email], html)
-
-async def send_teacher_assigned_email(email: str, teacher_name: str, course_title: str):
-    html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
-        <h2 style="color: #4F46E5;">New Course Assignment 👨‍🏫</h2>
-        <p>Hello {teacher_name}, you are the instructor for <strong>{course_title}</strong>.</p>
-    </div>
-    """
-    await send_email(f"Course Assigned: {course_title}", [email], html)
+    return {
+        "message": "Login successful", 
+        "role": user.role, 
+        "user_id": user.id,
+        "name": user.name 
+    }
