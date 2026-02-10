@@ -5,20 +5,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# 👇 FORCE PORT 465 (SSL Mode)
-# We use smtp.googlemail.com to bypass potential blocks
+# 👇 OUTLOOK / HOTMAIL SETTINGS
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
     MAIL_FROM=os.getenv("MAIL_FROM"),
     
-    # 👇 UPDATED SETTINGS
-    MAIL_PORT=465,
-    MAIL_SERVER="smtp.googlemail.com", # 👈 The "Magic" Alias
+    # 👇 Outlook uses Port 587
+    MAIL_PORT=587,
+    MAIL_SERVER="smtp.office365.com",
     
-    # 👇 CRITICAL FOR PORT 465
-    MAIL_STARTTLS=False,  # Must be FALSE
-    MAIL_SSL_TLS=True,    # Must be TRUE
+    # 👇 Standard Security for Outlook
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
     
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=False 
