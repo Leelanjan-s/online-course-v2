@@ -9,10 +9,14 @@ conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
     MAIL_FROM=os.getenv("MAIL_FROM"),
-    MAIL_PORT=465,
+    
+    # 👇 FORCE PORT 587 (The Standard "Unlocked" Port)
+    MAIL_PORT=587,
     MAIL_SERVER="smtp.gmail.com",
-    MAIL_STARTTLS=False,  
-    MAIL_SSL_TLS=True,    
+    
+    # 👇 CRITICAL SETTINGS FOR 587 (Do not change these!)
+    MAIL_STARTTLS=True,   # Must be TRUE
+    MAIL_SSL_TLS=False,   # Must be FALSE
     
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=False 
@@ -28,7 +32,7 @@ async def send_email(subject: str, recipients: list[EmailStr], body: str):
     fm = FastMail(conf)
     await fm.send_message(message)
 
-# Update email settings
+# 👇 Verification Email
 async def send_verification_email(email: str, token: str):
     # This link points to your Render App
     verify_url = f"https://online-course-v2.onrender.com/auth/verify?token={token}"
