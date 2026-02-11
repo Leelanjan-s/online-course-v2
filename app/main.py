@@ -72,8 +72,8 @@ def create_checkout_session(data: StripeCheckoutRequest):
                 'quantity': 1,
             }],
             mode='payment',
-            success_url=f"https://online-course-v2.onrender.com/payment/success?session_id={{CHECKOUT_SESSION_ID}}&course_id={data.course_id}&student_id={data.student_id}",
-            cancel_url="https://online-course-v2.onrender.com/student/dashboard",
+            success_url=f"https://online-course-v2-production.up.railway.app/payment/success?session_id={{CHECKOUT_SESSION_ID}}&course_id={data.course_id}&student_id={data.student_id}",
+            cancel_url=f"https://online-course-v2-production.up.railway.app/student/dashboard",
         )
         return {"url": checkout_session.url}
     except Exception as e:
@@ -163,27 +163,6 @@ def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get
         "quizzes": [{"id": q.id, "question": q.question, "options": q.options, "answer": q.correct_answer} for q in quizzes],
         "progress": {"videos": enrollment.completed_videos, "quizzes": enrollment.completed_quizzes}
     }
-
-@app.post("/debug/reset")
-def factory_reset(db: Session = Depends(get_db)):
-    db.query(Enrollment).delete()
-    db.query(Content).delete()
-    db.query(Quiz).delete()
-    db.query(Course).delete()
-    db.query(User).delete()
-    db.commit()
-
-    admin = User(name="Admin", email="admin@gmail.com", role="Admin", password_hash=get_password_hash("admin123"), is_verified=True)
-    teacher = User(name="Mr. Python", email="teacher@gmail.com", role="Teacher", password_hash=get_password_hash("123456"), is_verified=True)
-    student = User(name="Sam", email="student@gmail.com", role="Student", password_hash=get_password_hash("123456"), is_verified=True)
-    db.add_all([admin, teacher, student])
-    db.commit()
-    db.refresh(teacher)
-
-    course = Course(title="Python Mastery", description="Learn Python", price=49.99, teacher_id=teacher.id)
-    db.add(course)
-    db.commit()
-    return {"message": "Reset Done."}
 
 @app.get("/test-email")
 async def debug_email():
