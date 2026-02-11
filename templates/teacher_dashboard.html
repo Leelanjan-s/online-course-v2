@@ -36,14 +36,12 @@
     </div>
 
     <h2 class="text-xl font-bold text-gray-800 mb-4">My Courses</h2>
-    <div id="courseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        </div>
+    <div id="courseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"></div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="p-5 border-b border-gray-100">
             <h2 class="text-lg font-bold text-gray-800">Student Progress Tracking</h2>
         </div>
-        
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm text-gray-600 min-w-[600px]"> 
                 <thead class="bg-gray-50 text-gray-800 uppercase font-bold text-xs">
@@ -55,8 +53,7 @@
                         <th class="px-6 py-4">Progress</th>
                     </tr>
                 </thead>
-                <tbody id="studentTable" class="divide-y divide-gray-100">
-                </tbody>
+                <tbody id="studentTable" class="divide-y divide-gray-100"></tbody>
             </table>
         </div>
     </div>
@@ -88,9 +85,10 @@
                 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
                     <h3 class="font-bold text-lg text-gray-800 mb-1">${c.title}</h3>
                     <p class="text-sm text-gray-500 mb-4 h-10 overflow-hidden line-clamp-2">${c.description}</p>
-                    <div class="flex gap-2">
-                        <button onclick="addContent(${c.id})" class="flex-1 bg-emerald-50 text-emerald-600 py-2.5 rounded-lg font-semibold hover:bg-emerald-100 transition text-sm flex items-center justify-center gap-1"><i class="fa-solid fa-video"></i> Video</button>
-                        <button onclick="addQuiz(${c.id})" class="flex-1 bg-purple-50 text-purple-600 py-2.5 rounded-lg font-semibold hover:bg-purple-100 transition text-sm flex items-center justify-center gap-1"><i class="fa-solid fa-file-circle-question"></i> Quiz</button>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="addContent(${c.id}, 'video')" class="bg-emerald-50 text-emerald-600 py-2 rounded-lg font-semibold hover:bg-emerald-100 transition text-xs flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-video"></i> Video</button>
+                        <button onclick="addContent(${c.id}, 'file')" class="bg-orange-50 text-orange-600 py-2 rounded-lg font-semibold hover:bg-orange-100 transition text-xs flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-file-pdf"></i> File</button>
+                        <button onclick="addQuiz(${c.id})" class="bg-purple-50 text-purple-600 py-2 rounded-lg font-semibold hover:bg-purple-100 transition text-xs flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-question"></i> Quiz</button>
                     </div>
                 </div>`;
         });
@@ -103,10 +101,7 @@
         const table = document.getElementById("studentTable");
         table.innerHTML = "";
         
-        if(stats.length === 0) { 
-            table.innerHTML = "<tr><td colspan='5' class='px-6 py-8 text-center text-gray-400'>No students enrolled yet.</td></tr>"; 
-            return; 
-        }
+        if(stats.length === 0) { table.innerHTML = "<tr><td colspan='5' class='px-6 py-8 text-center text-gray-400'>No students enrolled yet.</td></tr>"; return; }
 
         stats.forEach(s => {
             table.innerHTML += `
@@ -115,35 +110,29 @@
                     <td class="px-6 py-4">${s.course_title}</td>
                     <td class="px-6 py-4"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${s.video_stats || '0/0'}</span></td>
                     <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">${s.quiz_stats || '0/0'}</span></td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-24 bg-gray-200 rounded-full h-2">
-                                <div class="bg-green-500 h-2 rounded-full" style="width: ${s.percent}%"></div>
-                            </div>
-                            <span class="text-xs font-bold text-gray-500">${s.percent}%</span>
-                        </div>
-                    </td>
+                    <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="w-24 bg-gray-200 rounded-full h-2"><div class="bg-green-500 h-2 rounded-full" style="width: ${s.percent}%"></div></div><span class="text-xs font-bold text-gray-500">${s.percent}%</span></div></td>
                 </tr>`;
         });
     }
 
-    async function addContent(id) {
-        const title = prompt("Video Title:");
-        const url = prompt("YouTube URL:");
+    async function addContent(id, type) {
+        // Dynamic prompt based on type
+        const title = prompt(type === 'video' ? "Video Title:" : "File Name (e.g. Course Syllabus PDF):");
+        const url = prompt(type === 'video' ? "YouTube URL:" : "Paste File Link (Google Drive / Dropbox):");
+        
         if(title && url) {
             await fetch(`/courses/${id}/content`, { 
                 method: "POST", headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({title, file_url:url, content_type:"video"}) 
+                body: JSON.stringify({title, file_url:url, content_type: type}) 
             });
-            alert("Video Added!");
+            alert(type === 'video' ? "Video Added!" : "Study Material Added!");
         }
     }
 
     async function addQuiz(id) {
         const q = prompt("Question:");
-        const opts = prompt("Options (comma separated, e.g., True,False):");
+        const opts = prompt("Options (comma separated):");
         const ans = prompt("Correct Answer:");
-        
         if(q && opts && ans) {
             await fetch(`/courses/${id}/quiz`, {
                 method: "POST", headers: {"Content-Type":"application/json"},

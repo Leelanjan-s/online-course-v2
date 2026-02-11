@@ -158,8 +158,11 @@ def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get
     
     contents = db.query(Content).filter_by(course_id=course_id).all()
     quizzes = db.query(Quiz).filter_by(course_id=course_id).all()
+    videos = [{"id": c.id, "title": c.title, "url": c.file_url} for c in contents if c.content_type == "video"]
+    resources = [{"id": c.id, "title": c.title, "url": c.file_url, "type": c.content_type} for c in contents if c.content_type != "video"]
     return {
-        "videos": [{"id": c.id, "title": c.title, "url": c.file_url} for c in contents],
+        "videos": videos,
+        "resources": resources,
         "quizzes": [{"id": q.id, "question": q.question, "options": q.options, "answer": q.correct_answer} for q in quizzes],
         "progress": {"videos": enrollment.completed_videos, "quizzes": enrollment.completed_quizzes}
     }
