@@ -185,12 +185,6 @@ def factory_reset(db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Reset Done."}
 
-@app.get("/nuke-db")
-def nuke_database():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    return {"message": "Database completely reset. All tables recreated."}
-
 @app.get("/test-email")
 async def debug_email():
     await send_welcome_email("leelanjans828@gmail.com", "Test User")

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Teacher Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -10,50 +11,52 @@
     body { font-family: 'Inter', sans-serif; background-color: #F3F4F6; }
   </style>
 </head>
-<body>
+<body class="pb-10">
 
 <nav class="bg-white shadow-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
-        <div class="flex items-center gap-2 text-indigo-600 font-bold text-xl">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-2">
+        <div class="flex items-center gap-2 text-indigo-600 font-bold text-xl w-full md:w-auto">
             <i class="fa-solid fa-chalkboard-user"></i> <span>TeacherPortal</span>
         </div>
-        <div class="flex items-center gap-4">
-            <span class="text-gray-600">Hello, <span id="teacherName" class="font-bold">Teacher</span></span>
-            <button onclick="localStorage.clear(); location.href='/';" class="text-red-500 hover:text-red-700 font-medium">Logout</button>
+        <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+            <span class="text-gray-600 text-sm">Hello, <span id="teacherName" class="font-bold">Teacher</span></span>
+            <button onclick="localStorage.clear(); location.href='/';" class="text-red-500 hover:text-red-700 font-medium text-sm border border-red-100 px-3 py-1 rounded-lg">Logout</button>
         </div>
     </div>
 </nav>
 
-<div class="max-w-7xl mx-auto px-4 py-8">
+<div class="max-w-7xl mx-auto px-4 py-6">
     
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="bg-blue-100 text-blue-600 p-4 rounded-full text-xl"><i class="fa-solid fa-book"></i></div>
-            <div><p class="text-gray-500 text-sm">Active Courses</p><h3 class="text-2xl font-bold" id="courseCount">0</h3></div>
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 mb-8">
+        <div class="bg-blue-100 text-blue-600 p-3 rounded-full text-xl"><i class="fa-solid fa-book"></i></div>
+        <div>
+            <p class="text-gray-500 text-xs uppercase font-bold tracking-wide">Active Courses</p>
+            <h3 class="text-2xl font-bold text-gray-800" id="courseCount">0</h3>
         </div>
-        </div>
+    </div>
 
     <h2 class="text-xl font-bold text-gray-800 mb-4">My Courses</h2>
-    <div id="courseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+    <div id="courseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="p-6 border-b border-gray-100">
+        <div class="p-5 border-b border-gray-100">
             <h2 class="text-lg font-bold text-gray-800">Student Progress Tracking</h2>
         </div>
+        
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm text-gray-600">
+            <table class="w-full text-left text-sm text-gray-600 min-w-[600px]"> 
                 <thead class="bg-gray-50 text-gray-800 uppercase font-bold text-xs">
                     <tr>
-                        <th class="px-6 py-4">Student Name</th>
+                        <th class="px-6 py-4">Student</th>
                         <th class="px-6 py-4">Course</th>
-                        <th class="px-6 py-4">Video Progress</th>
-                        <th class="px-6 py-4">Quiz Stats</th>
-                        <th class="px-6 py-4">Total Completion</th>
+                        <th class="px-6 py-4">Videos</th>
+                        <th class="px-6 py-4">Quizzes</th>
+                        <th class="px-6 py-4">Progress</th>
                     </tr>
                 </thead>
                 <tbody id="studentTable" class="divide-y divide-gray-100">
-                    </tbody>
+                </tbody>
             </table>
         </div>
     </div>
@@ -70,7 +73,6 @@
         const userName = localStorage.getItem("user_name");
         if(userName) document.getElementById("teacherName").innerText = userName;
 
-        // Load Courses
         const res = await fetch("/courses/");
         const allCourses = await res.json();
         const myCourses = allCourses.filter(c => String(c.teacher_id) === String(teacherId));
@@ -83,12 +85,12 @@
 
         myCourses.forEach(c => {
             list.innerHTML += `
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
                     <h3 class="font-bold text-lg text-gray-800 mb-1">${c.title}</h3>
-                    <p class="text-sm text-gray-500 mb-4 h-10 overflow-hidden">${c.description}</p>
+                    <p class="text-sm text-gray-500 mb-4 h-10 overflow-hidden line-clamp-2">${c.description}</p>
                     <div class="flex gap-2">
-                        <button onclick="addContent(${c.id})" class="flex-1 bg-emerald-50 text-emerald-600 py-2 rounded-lg font-semibold hover:bg-emerald-100 transition"><i class="fa-solid fa-video"></i> + Video</button>
-                        <button onclick="addQuiz(${c.id})" class="flex-1 bg-purple-50 text-purple-600 py-2 rounded-lg font-semibold hover:bg-purple-100 transition"><i class="fa-solid fa-file-circle-question"></i> + Quiz</button>
+                        <button onclick="addContent(${c.id})" class="flex-1 bg-emerald-50 text-emerald-600 py-2.5 rounded-lg font-semibold hover:bg-emerald-100 transition text-sm flex items-center justify-center gap-1"><i class="fa-solid fa-video"></i> Video</button>
+                        <button onclick="addQuiz(${c.id})" class="flex-1 bg-purple-50 text-purple-600 py-2.5 rounded-lg font-semibold hover:bg-purple-100 transition text-sm flex items-center justify-center gap-1"><i class="fa-solid fa-file-circle-question"></i> Quiz</button>
                     </div>
                 </div>`;
         });
@@ -107,7 +109,6 @@
         }
 
         stats.forEach(s => {
-            // Stats from backend (ensure main.py is updated)
             table.innerHTML += `
                 <tr class="hover:bg-gray-50 transition">
                     <td class="px-6 py-4 font-semibold text-gray-800">${s.student_name}</td>
