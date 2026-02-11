@@ -7,13 +7,13 @@ load_dotenv()
 
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
-# 🔴 IMPORTANT: This email MUST be verified in your Brevo account "Senders" list.
 SENDER_EMAIL = "leelanjans828@gmail.com" 
 SENDER_NAME = "ProLearn Admin"
+BASE_URL = "https://online-course-v2-production.up.railway.app"
 
 def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str):
     if not BREVO_API_KEY:
-        print("❌ Error: BREVO_API_KEY is missing.")
+        print(" Error: BREVO_API_KEY is missing.")
         return
 
     url = "https://api.brevo.com/v3/smtp/email"
@@ -31,20 +31,26 @@ def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: st
     
     try:
         response = requests.post(url, headers=headers, data=json.dumps(payload))
-        
         if response.status_code == 201:
-            print(f"✅ Email sent successfully to {to_email}")
+            print(f" Email sent successfully to {to_email}")
         else:
-            # This prints the specific error if it fails
-            print(f"❌ Brevo Error: {response.status_code} - {response.text}") 
-            
+            print(f" Brevo Error: {response.status_code} - {response.text}") 
     except Exception as e:
-        print(f"❌ Network Error: {e}")
+        print(f" Network Error: {e}")
 
-# --- WRAPPER FUNCTIONS ---
+async def send_verification_email(email: str, token: str):
+    verification_link = f"{BASE_URL}/auth/verify/{token}"
+    
+    html = f"""
+    <h1>Verify Your Account 🔒</h1>
+    <p>Click the link below to activate your account:</p>
+    <a href="{verification_link}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
+    <p>Or copy this link: {verification_link}</p>
+    """
+    send_brevo_email(email, "New User", "Verify Your Email", html)
 
 async def send_welcome_email(email: str, name: str):
-    html = f"<h1>Welcome to ProLearn, {name}! 🚀</h1><p>You can login now.</p>"
+    html = f"<h1>Welcome {name}!</h1><p>Your account is verified and active.</p>"
     send_brevo_email(email, name, "Welcome to ProLearn", html)
 
 async def send_login_alert(email: str, name: str):
@@ -60,7 +66,4 @@ async def send_email(subject: str, recipients: list, body: str):
         send_brevo_email(email_addr, "User", subject, body)
 
 async def send_teacher_assigned_email(email: str, teacher_name: str, course_title: str):
-    pass 
-
-async def send_verification_email(email: str, token: str):
     pass

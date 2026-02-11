@@ -6,7 +6,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-# ✅ CORRECT IMPORTS
 from app.email_utils import send_enrollment_confirm, send_email, send_welcome_email
 from app.database import Base, engine, get_db
 from app.routes import users, courses, auth
@@ -27,7 +26,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 
 if not STRIPE_SECRET_KEY:
-    print("⚠️ WARNING: Stripe Keys are missing! Check your .env file.")
+    print(" WARNING: Stripe Keys are missing! Check your .env file.")
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -186,16 +185,13 @@ def factory_reset(db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Reset Done."}
 
-# --- ADD THIS AT THE BOTTOM OF main.py ---
 @app.get("/nuke-db")
 def nuke_database():
-    # ⚠️ WARNING: This deletes all data!
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     return {"message": "Database completely reset. All tables recreated."}
 
 @app.get("/test-email")
 async def debug_email():
-    # Sends a test email to yourself
     await send_welcome_email("leelanjans828@gmail.com", "Test User")
     return {"message": "Email sent command executed. Check Railway logs for 'Brevo Response'."}
