@@ -1,16 +1,17 @@
 import os
 import stripe
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from app.email_utils import send_enrollment_confirm, send_email, send_welcome_email
+from typing import List 
+
+from app.email_utils import send_welcome_email
 from app.database import Base, engine, get_db
 from app.routes import users, courses, auth
-from app.models import User, Course, Enrollment, Content, Quiz
-from app.routes.auth import get_password_hash
+from app.models import User, Course, Enrollment, Content, Quiz, Question 
 
 Base.metadata.create_all(bind=engine)
 
@@ -19,6 +20,7 @@ app = FastAPI()
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(courses.router)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,6 +31,8 @@ if not STRIPE_SECRET_KEY:
     print(" WARNING: Stripe Keys are missing! Check your .env file.")
 
 stripe.api_key = STRIPE_SECRET_KEY
+
+YOUR_DOMAIN = "https://online-course-v2-production.up.railway.app"
 
 @app.get("/", response_class=HTMLResponse)
 def login_page(): return (BASE_DIR / "templates/login.html").read_text()
@@ -48,7 +52,6 @@ def checkout_page(): return (BASE_DIR / "templates/checkout.html").read_text()
 @app.get("/enrollments/")
 def get_enrollments(db: Session = Depends(get_db)):
     return db.query(Enrollment).all()
-
 
 class StripeCheckoutRequest(BaseModel):
     course_id: int
@@ -72,8 +75,8 @@ def create_checkout_session(data: StripeCheckoutRequest):
                 'quantity': 1,
             }],
             mode='payment',
-            success_url=f"https://online-course-v2-production.up.railway.app/payment/success?session_id={{CHECKOUT_SESSION_ID}}&course_id={data.course_id}&student_id={data.student_id}",
-            cancel_url=f"https://online-course-v2-production.up.railway.app/student/dashboard",
+            success_url=f"{YOUR_DOMAIN}/payment/success?session_id={{CHECKOUT_SESSION_ID}}&course_id={data.course_id}&student_id={data.student_id}",
+            cancel_url=f"{YOUR_DOMAIN}/student/dashboard",
         )
         return {"url": checkout_session.url}
     except Exception as e:
@@ -151,23 +154,88 @@ def get_teacher_stats(teacher_id: int, db: Session = Depends(get_db)):
             })
     return stats
 
+class QuestionCreate(BaseModel):
+    question_text: str
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
+    correct_answer: str
+
+class QuizCreate(BaseModel):
+    title: str
+    questions: List[QuestionCreate]
+
+@app.post("/courses/{course_id}/quiz")
+def create_quiz(course_id: int, quiz_data: QuizCreate, db: Session = Depends(get_db)):
+    new_quiz = Quiz(title=quiz_data.title, course_id=course_id)
+    db.add(new_quiz)
+    db.commit()
+    db.refresh(new_quiz)
+
+    for q in quiz_data.questions:
+        new_question = Question(
+            quiz_id=new_quiz.id,
+            question_text=q.question_text,
+            option_a=q.option_a,
+            option_b=q.option_b,
+            option_c=q.option_c,
+            option_d=q.option_d,
+            correct_answer=q.correct_answer
+        )
+        db.add(new_question)
+    
+    db.commit()
+    return {"message": "Quiz created successfully", "quiz_id": new_quiz.id}
+
+@app.delete("/quizzes/{quiz_id}")
+def delete_quiz(quiz_id: int, db: Session = Depends(get_db)):
+    quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    db.delete(quiz)
+    db.commit()
+    return {"message": "Quiz deleted"}
+
 @app.get("/courses/{course_id}/learn")
 def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get_db)):
     enrollment = db.query(Enrollment).filter_by(course_id=course_id, student_id=student_id).first()
     if not enrollment: raise HTTPException(403, detail="Not Enrolled")
     
-    contents = db.query(Content).filter_by(course_id=course_id).all()
+    all_content = db.query(Content).filter_by(course_id=course_id).all()
     quizzes = db.query(Quiz).filter_by(course_id=course_id).all()
-    videos = [{"id": c.id, "title": c.title, "url": c.file_url} for c in contents if c.content_type == "video"]
-    resources = [{"id": c.id, "title": c.title, "url": c.file_url, "type": c.content_type} for c in contents if c.content_type != "video"]
+
+    videos = [{"id": c.id, "title": c.title, "url": c.file_url} for c in all_content if c.content_type == "video"]
+    resources = [{"id": c.id, "title": c.title, "url": c.file_url, "type": c.content_type} for c in all_content if c.content_type != "video"]
+
+    formatted_quizzes = []
+    for q in quizzes:
+        questions = db.query(Question).filter_by(quiz_id=q.id).all()
+        formatted_quizzes.append({
+            "id": q.id,
+            "title": q.title,
+            "questions": [{
+                "id": quest.id,
+                "question_text": quest.question_text,
+                "options": {
+                    "A": quest.option_a,
+                    "B": quest.option_b,
+                    "C": quest.option_c,
+                    "D": quest.option_d
+                },
+                "correct_answer": quest.correct_answer
+            } for quest in questions]
+        })
+
     return {
         "videos": videos,
         "resources": resources,
-        "quizzes": [{"id": q.id, "question": q.question, "options": q.options, "answer": q.correct_answer} for q in quizzes],
+        "quizzes": formatted_quizzes,
         "progress": {"videos": enrollment.completed_videos, "quizzes": enrollment.completed_quizzes}
     }
 
 @app.get("/test-email")
 async def debug_email():
     await send_welcome_email("leelanjans828@gmail.com", "Test User")
-    return {"message": "Email sent command executed. Check Railway logs for 'Brevo Response'."}
+    return {"message": "Email sent command executed."}
