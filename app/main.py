@@ -6,22 +6,24 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 # Import email functions
 from app.email_utils import send_welcome_email, send_enrollment_confirm, send_teacher_assigned_email
 from app.database import Base, engine, get_db
-from app.routes import users, auth  # ✅ ONLY import users and auth. NO courses.router!
+# ✅ FIX 1: REMOVED 'courses' from here. Only import users and auth.
+from app.routes import users, auth 
 from app.models import User, Course, Enrollment, Content, Quiz, Question
 
-# ✅ CRITICAL: This ensures your database tables exist
+# Ensure tables exist
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# ✅ ONLY include Auth and Users. We handle Courses manually below to prevent conflicts.
+# ✅ FIX 2: Only include these two. We handle courses manually below.
 app.include_router(auth.router)
 app.include_router(users.router)
+# app.include_router(courses.router) <--- THIS WAS THE PROBLEM. IT IS GONE NOW.
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,7 +32,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 stripe.api_key = STRIPE_SECRET_KEY
 
-# ✅ Make sure this matches your Railway URL exactly
+# ✅ Make sure this is your correct Railway URL
 YOUR_DOMAIN = "https://online-course-v2-production.up.railway.app"
 
 # --- PAGE ROUTES ---
@@ -81,11 +83,9 @@ def payment_success(session_id: str, course_id: int, student_id: int, background
     except: pass 
     
     if not db.query(Enrollment).filter_by(student_id=student_id, course_id=course_id).first():
-        # 1. Create Enrollment
         db.add(Enrollment(student_id=student_id, course_id=course_id, transaction_id=f"STRIPE_{session_id}"))
         db.commit()
         
-        # 2. Send Confirmation Email to Student
         student = db.query(User).filter(User.id == student_id).first()
         course = db.query(Course).filter(Course.id == course_id).first()
         if student and course and student.email:
@@ -93,7 +93,7 @@ def payment_success(session_id: str, course_id: int, student_id: int, background
 
     return RedirectResponse(url="/student/dashboard")
 
-# --- COURSE MANAGEMENT (Replaces courses.router) ---
+# --- COURSE ROUTES (Moved here to avoid conflicts) ---
 
 class CourseCreate(BaseModel):
     title: str
@@ -107,28 +107,21 @@ def list_courses(db: Session = Depends(get_db)):
 
 @app.post("/courses/")
 def create_course(course: CourseCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    # Create the course
     new_course = Course(title=course.title, description=course.description, price=course.price, teacher_id=course.teacher_id)
     db.add(new_course)
     db.commit()
     db.refresh(new_course)
     
-    # Send email to teacher
     teacher = db.query(User).filter(User.id == course.teacher_id).first()
     if teacher and teacher.email:
         background_tasks.add_task(send_teacher_assigned_email, teacher.email, teacher.name, course.title)
-        
     return new_course
 
 @app.delete("/courses/{course_id}")
 def delete_course(course_id: int, db: Session = Depends(get_db)):
-    course = db.query(Course).filter(Course.id == course_id).first()
-    if not course: raise HTTPException(404, detail="Course not found")
-    db.delete(course)
+    db.query(Course).filter(Course.id == course_id).delete()
     db.commit()
-    return {"message": "Course deleted"}
-
-# --- CONTENT & QUIZ ROUTES ---
+    return {"message": "Deleted"}
 
 class ContentCreate(BaseModel):
     title: str
@@ -140,6 +133,8 @@ def add_content(course_id: int, content: ContentCreate, db: Session = Depends(ge
     db.add(Content(**content.dict(), course_id=course_id))
     db.commit()
     return {"message": "Content added"}
+
+# --- QUIZ ROUTES (The correct ones) ---
 
 class QuestionCreate(BaseModel):
     question_text: str
@@ -155,13 +150,13 @@ class QuizCreate(BaseModel):
 
 @app.post("/courses/{course_id}/quiz")
 def create_quiz(course_id: int, quiz_data: QuizCreate, db: Session = Depends(get_db)):
-    # 1. Create Quiz Title
+    # 1. Create Quiz
     new_quiz = Quiz(title=quiz_data.title, course_id=course_id)
     db.add(new_quiz)
     db.commit()
     db.refresh(new_quiz)
 
-    # 2. Add All Questions
+    # 2. Add Questions
     for q in quiz_data.questions:
         db.add(Question(quiz_id=new_quiz.id, **q.dict()))
     
@@ -181,7 +176,6 @@ def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course: raise HTTPException(404, detail="Course not found")
 
-    # Allow Teacher OR Enrolled Student
     is_teacher = (course.teacher_id == student_id)
     enrollment = db.query(Enrollment).filter_by(course_id=course_id, student_id=student_id).first()
 
@@ -208,7 +202,7 @@ def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get
         "progress": {"videos": prog_v, "quizzes": prog_q}
     }
 
-# --- PROGRESS & STATS ---
+# --- PROGRESS ROUTES ---
 
 class ProgressUpdate(BaseModel):
     student_id: int

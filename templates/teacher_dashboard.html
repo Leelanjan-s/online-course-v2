@@ -9,6 +9,7 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; background-color: #F3F4F6; }
+    /* Modal styles */
     .modal { transition: opacity 0.25s ease; }
     body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
   </style>
@@ -28,6 +29,7 @@
 </nav>
 
 <div class="max-w-7xl mx-auto px-4 py-6">
+    
     <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 mb-8">
         <div class="bg-blue-100 text-blue-600 p-3 rounded-full text-xl"><i class="fa-solid fa-book"></i></div>
         <div>
@@ -40,51 +42,68 @@
     <div id="courseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"></div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="p-5 border-b border-gray-100"><h2 class="text-lg font-bold text-gray-800">Student Progress Tracking</h2></div>
-        <div class="overflow-x-auto"><table class="w-full text-left text-sm text-gray-600 min-w-[600px]"><thead class="bg-gray-50 text-gray-800 uppercase font-bold text-xs"><tr><th class="px-6 py-4">Student</th><th class="px-6 py-4">Course</th><th class="px-6 py-4">Videos</th><th class="px-6 py-4">Quizzes</th><th class="px-6 py-4">Progress</th></tr></thead><tbody id="studentTable" class="divide-y divide-gray-100"></tbody></table></div>
+        <div class="p-5 border-b border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800">Student Progress Tracking</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600 min-w-[600px]"> 
+                <thead class="bg-gray-50 text-gray-800 uppercase font-bold text-xs">
+                    <tr>
+                        <th class="px-6 py-4">Student</th>
+                        <th class="px-6 py-4">Course</th>
+                        <th class="px-6 py-4">Videos</th>
+                        <th class="px-6 py-4">Quizzes</th>
+                        <th class="px-6 py-4">Progress</th>
+                    </tr>
+                </thead>
+                <tbody id="studentTable" class="divide-y divide-gray-100"></tbody>
+            </table>
+        </div>
     </div>
+
 </div>
 
 <div id="quizModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
     <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+    
     <div class="modal-container bg-white w-11/12 md:max-w-3xl mx-auto rounded-xl shadow-lg z-50 overflow-y-auto max-h-[90vh]">
         <div class="modal-content py-4 text-left px-6">
-            <div class="flex justify-between items-center pb-3 border-b mb-4">
+            <div class="flex justify-between items-center pb-3">
                 <p class="text-2xl font-bold text-gray-800">Quiz Manager</p>
-                <div class="modal-close cursor-pointer z-50" onclick="toggleModal('quizModal')"><i class="fa-solid fa-times text-gray-500 hover:text-gray-700"></i></div>
-            </div>
-
-            <div id="existingQuizzes" class="mb-6 space-y-2"></div>
-
-            <h3 class="text-lg font-bold text-indigo-600 mb-4">Create New Assessment</h3>
-            <input id="quizTitle" class="w-full border rounded p-2 mb-4" placeholder="Quiz Title (e.g. Module 1 Exam)">
-            
-            <div class="bg-gray-50 p-4 rounded-lg border mb-4">
-                <h4 class="font-bold text-gray-700 mb-2">Add a Question</h4>
-                <textarea id="qText" class="w-full border rounded p-2 mb-2" placeholder="Question Text"></textarea>
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <input id="optA" class="border rounded p-2" placeholder="Option A">
-                    <input id="optB" class="border rounded p-2" placeholder="Option B">
-                    <input id="optC" class="border rounded p-2" placeholder="Option C">
-                    <input id="optD" class="border rounded p-2" placeholder="Option D">
+                <div class="modal-close cursor-pointer z-50" onclick="toggleModal('quizModal')">
+                    <i class="fa-solid fa-times text-gray-500 hover:text-gray-700"></i>
                 </div>
-                <select id="correctOpt" class="w-full border rounded p-2 mb-2">
-                    <option value="" disabled selected>Select Correct Answer</option>
-                    <option value="Option A">Option A</option>
-                    <option value="Option B">Option B</option>
-                    <option value="Option C">Option C</option>
-                    <option value="Option D">Option D</option>
-                </select>
-                <button onclick="addQuestionToList()" class="bg-indigo-600 text-white px-4 py-2 rounded w-full font-bold">Add Question to Quiz</button>
             </div>
 
-            <div class="mb-4">
-                <h4 class="font-bold text-gray-700">Current Questions (<span id="qCount">0</span>)</h4>
-                <div id="questionsList" class="text-sm text-gray-600 mt-2 space-y-1"></div>
-            </div>
+            <div id="quizManagerBody">
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4">Existing Quizzes</h3>
+                    <div id="existingQuizzesList" class="space-y-2">
+                        <p class="text-gray-500 text-sm">Loading...</p>
+                    </div>
+                </div>
 
-            <div class="flex justify-end">
-                <button onclick="publishQuiz()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg">Publish Quiz</button>
+                <div class="border-t pt-6">
+                    <h3 class="text-lg font-semibold mb-4 text-indigo-600">Create New Quiz</h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="quizTitle">Quiz Title</label>
+                        <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="quizTitle" type="text" placeholder="e.g., Mid-term Assessment">
+                    </div>
+
+                    <div id="questionsContainer" class="space-y-6 mb-6">
+                        </div>
+
+                    <button onclick="addQuestionForm()" class="bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded inline-flex items-center hover:bg-gray-200 transition w-full justify-center border border-gray-300 border-dashed">
+                        <i class="fa-solid fa-plus mr-2"></i> Add Question
+                    </button>
+
+                    <div class="mt-8 flex justify-end">
+                        <button id="saveQuizBtn" onclick="saveQuiz()" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded hover:bg-indigo-700 transition">
+                            Save Quiz
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -93,31 +112,198 @@
 <script>
     const teacherId = localStorage.getItem("user_id");
     let currentCourseId = null;
-    let newQuestions = [];
+    let questionCount = 0;
 
-    function toggleModal(id) {
-        document.getElementById(id).classList.toggle("opacity-0");
-        document.getElementById(id).classList.toggle("pointer-events-none");
+    // --- MODAL FUNCTIONS ---
+    function toggleModal(modalID) {
+        document.getElementById(modalID).classList.toggle("opacity-0");
+        document.getElementById(modalID).classList.toggle("pointer-events-none");
         document.body.classList.toggle("modal-active");
     }
 
+    // --- QUIZ MANAGER FUNCTIONS ---
+    async function openQuizManager(courseId) {
+        currentCourseId = courseId;
+        document.getElementById('quizTitle').value = '';
+        document.getElementById('questionsContainer').innerHTML = '';
+        questionCount = 0;
+        addQuestionForm(); // Add the first question form by default
+        await loadExistingQuizzes(courseId);
+        toggleModal('quizModal');
+    }
+
+    async function loadExistingQuizzes(courseId) {
+        const list = document.getElementById('existingQuizzesList');
+        list.innerHTML = '<p class="text-gray-500 text-sm animate-pulse">Loading quizzes...</p>';
+        
+        try {
+            // Fetch content including quizzes
+            const res = await fetch(`/courses/${courseId}/learn?student_id=${teacherId}`); 
+            const data = await res.json();
+            
+            if (data.quizzes.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-sm">No quizzes created for this course yet.</p>';
+                return;
+            }
+
+            list.innerHTML = '';
+            data.quizzes.forEach(quiz => {
+                list.innerHTML += `
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded border border-gray-200">
+                        <div>
+                            <p class="font-semibold text-gray-800">${quiz.title}</p>
+                            <p class="text-xs text-gray-500">${quiz.questions.length} Questions</p>
+                        </div>
+                        <button onclick="deleteQuiz(${quiz.id})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 p-2 rounded-full hover:bg-red-50 transition">
+                            <i class="fa-solid fa-trash text-sm"></i>
+                        </button>
+                    </div>
+                `;
+            });
+        } catch (e) {
+            list.innerHTML = '<p class="text-red-500 text-sm">Error loading quizzes.</p>';
+        }
+    }
+
+    async function deleteQuiz(quizId) {
+        if (!confirm("Are you sure you want to delete this quiz? This cannot be undone.")) return;
+
+        try {
+            const res = await fetch(`/quizzes/${quizId}`, { method: 'DELETE' });
+            if (res.ok) {
+                await loadExistingQuizzes(currentCourseId);
+                loadDashboard(); // Refresh stats
+            } else {
+                alert("Failed to delete quiz.");
+            }
+        } catch (e) {
+            alert("Error deleting quiz.");
+        }
+    }
+
+    function addQuestionForm() {
+        questionCount++;
+        const container = document.getElementById('questionsContainer');
+        const qHtml = `
+            <div class="question-form bg-gray-50 p-4 rounded-lg border border-gray-200 relative" id="q-form-${questionCount}">
+                <button onclick="removeQuestionForm(${questionCount})" class="absolute top-2 right-2 text-gray-400 hover:text-red-500">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h4 class="font-bold text-gray-700 mb-3">Question ${questionCount}</h4>
+                
+                <div class="mb-3">
+                    <label class="block text-gray-700 text-xs font-bold mb-1">Question Text</label>
+                    <textarea class="q-text shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" rows="2" placeholder="Enter the question here..."></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div><label class="block text-gray-700 text-xs font-bold mb-1">Option A</label><input type="text" class="q-opt-a shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></div>
+                    <div><label class="block text-gray-700 text-xs font-bold mb-1">Option B</label><input type="text" class="q-opt-b shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></div>
+                    <div><label class="block text-gray-700 text-xs font-bold mb-1">Option C</label><input type="text" class="q-opt-c shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></div>
+                    <div><label class="block text-gray-700 text-xs font-bold mb-1">Option D</label><input type="text" class="q-opt-d shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></div>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 text-xs font-bold mb-1">Correct Answer</label>
+                    <select class="q-correct shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="A">Option A</option>
+                        <option value="B">Option B</option>
+                        <option value="C">Option C</option>
+                        <option value="D">Option D</option>
+                    </select>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', qHtml);
+    }
+
+    function removeQuestionForm(id) {
+        document.getElementById(`q-form-${id}`).remove();
+    }
+
+    async function saveQuiz() {
+        const title = document.getElementById('quizTitle').value;
+        if (!title) { alert("Please enter a quiz title."); return; }
+
+        const questionForms = document.querySelectorAll('.question-form');
+        const questions = [];
+        
+        for (const form of questionForms) {
+            const qText = form.querySelector('.q-text').value;
+            const optA = form.querySelector('.q-opt-a').value;
+            const optB = form.querySelector('.q-opt-b').value;
+            const optC = form.querySelector('.q-opt-c').value;
+            const optD = form.querySelector('.q-opt-d').value;
+            const correct = form.querySelector('.q-correct').value;
+
+            if (!qText || !optA || !optB || !optC || !optD) {
+                alert("Please fill out all fields for all questions."); return;
+            }
+
+            questions.push({
+                question_text: qText, option_a: optA, option_b: optB, option_c: optC, option_d: optD, correct_answer: correct
+            });
+        }
+
+        if (questions.length === 0) { alert("Please add at least one question."); return; }
+
+        const btn = document.getElementById('saveQuizBtn');
+        const originalText = btn.innerText;
+        btn.innerText = "Saving..."; btn.disabled = true;
+
+        try {
+            const res = await fetch(`/courses/${currentCourseId}/quiz`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title, questions: questions })
+            });
+
+            if (res.ok) {
+                alert("Quiz saved successfully!");
+                document.getElementById('quizTitle').value = '';
+                document.getElementById('questionsContainer').innerHTML = '';
+                questionCount = 0;
+                addQuestionForm();
+                await loadExistingQuizzes(currentCourseId);
+                loadDashboard(); // Refresh main dashboard stats
+            } else {
+                alert("Failed to save quiz.");
+            }
+        } catch (e) {
+            alert("Error saving quiz.");
+        } finally {
+            btn.innerText = originalText; btn.disabled = false;
+        }
+    }
+
+
+    // --- DASHBOARD LOADING ---
     async function loadDashboard() {
+        const role = localStorage.getItem("role");
+        if (role !== "Teacher") { window.location.href = "/"; return; }
+
+        const userName = localStorage.getItem("user_name");
+        if(userName) document.getElementById("teacherName").innerText = userName;
+
         const res = await fetch("/courses/");
         const allCourses = await res.json();
         const myCourses = allCourses.filter(c => String(c.teacher_id) === String(teacherId));
+        
         document.getElementById("courseCount").innerText = myCourses.length;
         const list = document.getElementById("courseList");
         list.innerHTML = "";
         
+        if (myCourses.length === 0) list.innerHTML = "<p class='col-span-full text-gray-400'>No courses found.</p>";
+
         myCourses.forEach(c => {
             list.innerHTML += `
                 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
                     <h3 class="font-bold text-lg text-gray-800 mb-1">${c.title}</h3>
-                    <p class="text-sm text-gray-500 mb-4 h-10 overflow-hidden">${c.description}</p>
+                    <p class="text-sm text-gray-500 mb-4 h-10 overflow-hidden line-clamp-2">${c.description}</p>
                     <div class="grid grid-cols-3 gap-2">
-                        <button onclick="addContent(${c.id}, 'video')" class="bg-emerald-50 text-emerald-600 py-2 rounded text-xs font-bold"><i class="fa-solid fa-video"></i> Video</button>
-                        <button onclick="addContent(${c.id}, 'file')" class="bg-orange-50 text-orange-600 py-2 rounded text-xs font-bold"><i class="fa-solid fa-file"></i> File</button>
-                        <button onclick="openQuizManager(${c.id})" class="bg-purple-50 text-purple-600 py-2 rounded text-xs font-bold"><i class="fa-solid fa-list-check"></i> Quiz</button>
+                        <button onclick="addContent(${c.id}, 'video')" class="bg-emerald-50 text-emerald-600 py-2 rounded-lg font-semibold hover:bg-emerald-100 transition text-xs flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-video"></i> Video</button>
+                        <button onclick="addContent(${c.id}, 'file')" class="bg-orange-50 text-orange-600 py-2 rounded-lg font-semibold hover:bg-orange-100 transition text-xs flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-file-pdf"></i> File</button>
+                        <button onclick="openQuizManager(${c.id})" class="bg-purple-50 text-purple-600 py-2 rounded-lg font-semibold hover:bg-purple-100 transition text-xs flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-clipboard-question"></i> Quiz</button>
                     </div>
                 </div>`;
         });
@@ -129,100 +315,33 @@
         const stats = await res.json();
         const table = document.getElementById("studentTable");
         table.innerHTML = "";
-        if(stats.length===0) table.innerHTML = "<tr><td colspan='5' class='p-4 text-center text-gray-400'>No students yet.</td></tr>";
+        
+        if(stats.length === 0) { table.innerHTML = "<tr><td colspan='5' class='px-6 py-8 text-center text-gray-400'>No students enrolled yet.</td></tr>"; return; }
+
         stats.forEach(s => {
-            table.innerHTML += `<tr class="hover:bg-gray-50"><td class="px-6 py-4 font-bold">${s.student_name}</td><td class="px-6 py-4">${s.course_title}</td><td class="px-6 py-4">${s.video_stats}</td><td class="px-6 py-4">${s.quiz_stats}</td><td class="px-6 py-4 font-bold text-indigo-600">${s.percent}%</td></tr>`;
+            table.innerHTML += `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 font-semibold text-gray-800">${s.student_name}</td>
+                    <td class="px-6 py-4">${s.course_title}</td>
+                    <td class="px-6 py-4"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${s.video_stats || '0/0'}</span></td>
+                    <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">${s.quiz_stats || '0/0'}</span></td>
+                    <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="w-24 bg-gray-200 rounded-full h-2"><div class="bg-green-500 h-2 rounded-full" style="width: ${s.percent}%"></div></div><span class="text-xs font-bold text-gray-500">${s.percent}%</span></div></td>
+                </tr>`;
         });
     }
 
     async function addContent(id, type) {
-        const title = prompt(type==='video'?"Video Title:":"File Name:");
-        const url = prompt(type==='video'?"YouTube URL:":"File Link (Drive/Dropbox):");
+        const title = prompt(type === 'video' ? "Video Title:" : "File Name (e.g. Course PDF):");
+        const url = prompt(type === 'video' ? "YouTube URL:" : "Paste File Link (Drive/Dropbox):");
         if(title && url) {
-            await fetch(`/courses/${id}/content`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({title, file_url:url, content_type: type}) });
+            await fetch(`/courses/${id}/content`, { 
+                method: "POST", headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({title, file_url:url, content_type: type}) 
+            });
             alert("Added!");
         }
     }
-
-    async function openQuizManager(id) {
-        currentCourseId = id;
-        newQuestions = [];
-        updateQuestionList();
-        document.getElementById("quizTitle").value = "";
-        toggleModal("quizModal");
-        
-        const res = await fetch(`/courses/${id}/learn?student_id=${teacherId}`);
-        const data = await res.json();
-        const container = document.getElementById("existingQuizzes");
-        container.innerHTML = "<h4 class='font-bold text-gray-700 mb-2'>Existing Assessments</h4>";
-        if(data.quizzes.length === 0) container.innerHTML += "<p class='text-sm text-gray-400'>No quizzes yet.</p>";
-        
-        data.quizzes.forEach(q => {
-            container.innerHTML += `
-                <div class="flex justify-between items-center bg-gray-50 p-2 rounded mb-1 border">
-                    <span class="font-medium text-sm">${q.title} (${q.questions.length} Qs)</span>
-                    <button onclick="deleteQuiz(${q.id})" class="text-red-500 hover:text-red-700 text-xs font-bold">Delete</button>
-                </div>`;
-        });
-    }
-
-    function addQuestionToList() {
-        const txt = document.getElementById("qText").value;
-        const a = document.getElementById("optA").value.trim();
-        const b = document.getElementById("optB").value.trim();
-        const c = document.getElementById("optC").value.trim();
-        const d = document.getElementById("optD").value.trim();
-        const corr = document.getElementById("correctOpt").value;
-
-        if(!txt || !a || !b || !c || !d || !corr) return alert("Fill all fields");
-        
-        // ✅ CRITICAL FIX: Trims and saves exact text of correct option
-        let correctText = "";
-        if(corr === "Option A") correctText = a;
-        if(corr === "Option B") correctText = b;
-        if(corr === "Option C") correctText = c;
-        if(corr === "Option D") correctText = d;
-
-        newQuestions.push({ question_text: txt, option_a: a, option_b: b, option_c: c, option_d: d, correct_answer: correctText });
-        
-        // Clear inputs
-        document.getElementById("qText").value = "";
-        document.getElementById("optA").value = "";
-        document.getElementById("optB").value = "";
-        document.getElementById("optC").value = "";
-        document.getElementById("optD").value = "";
-        updateQuestionList();
-    }
-
-    function updateQuestionList() {
-        document.getElementById("qCount").innerText = newQuestions.length;
-        const list = document.getElementById("questionsList");
-        list.innerHTML = "";
-        newQuestions.forEach((q, i) => {
-            list.innerHTML += `<div class="bg-gray-100 p-2 rounded flex justify-between"><span>${i+1}. ${q.question_text}</span> <button onclick="newQuestions.splice(${i},1);updateQuestionList()" class="text-red-500">x</button></div>`;
-        });
-    }
-
-    async function publishQuiz() {
-        const title = document.getElementById("quizTitle").value;
-        if(!title || newQuestions.length === 0) return alert("Add title and at least one question.");
-        
-        await fetch(`/courses/${currentCourseId}/quiz`, {
-            method: "POST", headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({title: title, questions: newQuestions})
-        });
-        alert("Quiz Published!");
-        toggleModal("quizModal");
-        openQuizManager(currentCourseId);
-    }
-
-    async function deleteQuiz(id) {
-        if(confirm("Delete this quiz?")) {
-            await fetch(`/quizzes/${id}`, { method: "DELETE" });
-            openQuizManager(currentCourseId); 
-        }
-    }
-
+    
     window.onload = loadDashboard;
 </script>
 </body>
