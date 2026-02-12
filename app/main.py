@@ -6,22 +6,23 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 # Import email functions
 from app.email_utils import send_welcome_email, send_enrollment_confirm, send_teacher_assigned_email
 from app.database import Base, engine, get_db
-from app.routes import users, courses, auth
+from app.routes import users, auth  # ✅ ONLY import users and auth. NO courses.router!
 from app.models import User, Course, Enrollment, Content, Quiz, Question
 
-# ✅ CRITICAL: This recreates the tables (Quizzes, Questions) correctly
+# ✅ CRITICAL: This ensures your database tables exist
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+# ✅ ONLY include Auth and Users. We handle Courses manually below to prevent conflicts.
 app.include_router(auth.router)
 app.include_router(users.router)
-app.include_router(courses.router)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,6 +30,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 stripe.api_key = STRIPE_SECRET_KEY
 
+# ✅ Make sure this matches your Railway URL exactly
 YOUR_DOMAIN = "https://online-course-v2-production.up.railway.app"
 
 # --- PAGE ROUTES ---
@@ -83,7 +85,7 @@ def payment_success(session_id: str, course_id: int, student_id: int, background
         db.add(Enrollment(student_id=student_id, course_id=course_id, transaction_id=f"STRIPE_{session_id}"))
         db.commit()
         
-        # 2. ✅ FIX: Send Confirmation Email to Student
+        # 2. Send Confirmation Email to Student
         student = db.query(User).filter(User.id == student_id).first()
         course = db.query(Course).filter(Course.id == course_id).first()
         if student and course and student.email:
@@ -91,42 +93,54 @@ def payment_success(session_id: str, course_id: int, student_id: int, background
 
     return RedirectResponse(url="/student/dashboard")
 
-# --- PROGRESS ROUTES ---
-class ProgressUpdate(BaseModel):
-    student_id: int
-    course_id: int
-    item_id: int
-    type: str
+# --- COURSE MANAGEMENT (Replaces courses.router) ---
 
-@app.post("/progress/mark")
-def mark_progress(data: ProgressUpdate, db: Session = Depends(get_db)):
-    enrollment = db.query(Enrollment).filter_by(student_id=data.student_id, course_id=data.course_id).first()
-    if not enrollment: raise HTTPException(404)
-    current = enrollment.completed_videos if data.type == "video" else enrollment.completed_quizzes
-    if str(data.item_id) not in (current or "").split(","):
-        new_val = ((current or "") + "," + str(data.item_id)).strip(",")
-        if data.type == "video": enrollment.completed_videos = new_val
-        else: enrollment.completed_quizzes = new_val
-        db.commit()
-    return {"message": "Updated"}
+class CourseCreate(BaseModel):
+    title: str
+    description: str
+    price: float
+    teacher_id: int
 
-@app.get("/teacher/stats/{teacher_id}")
-def get_teacher_stats(teacher_id: int, db: Session = Depends(get_db)):
-    courses = db.query(Course).filter(Course.teacher_id == teacher_id).all()
-    stats = []
-    for course in courses:
-        enrollments = db.query(Enrollment).filter(Enrollment.course_id == course.id).all()
-        total_vids = db.query(Content).filter(Content.course_id == course.id).count()
-        total_quiz = db.query(Quiz).filter(Quiz.course_id == course.id).count()
-        total_items = total_vids + total_quiz
-        for e in enrollments:
-            done_v = len([x for x in (e.completed_videos or "").split(",") if x])
-            done_q = len([x for x in (e.completed_quizzes or "").split(",") if x])
-            percent = int(((done_v + done_q) / total_items) * 100) if total_items > 0 else 0
-            stats.append({"student_name": e.student.name, "course_title": course.title, "video_stats": f"{done_v}/{total_vids}", "quiz_stats": f"{done_q}/{total_quiz}", "percent": percent})
-    return stats
+@app.get("/courses/")
+def list_courses(db: Session = Depends(get_db)):
+    return db.query(Course).all()
 
-# --- NEW QUIZ API (Correct Structure) ---
+@app.post("/courses/")
+def create_course(course: CourseCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # Create the course
+    new_course = Course(title=course.title, description=course.description, price=course.price, teacher_id=course.teacher_id)
+    db.add(new_course)
+    db.commit()
+    db.refresh(new_course)
+    
+    # Send email to teacher
+    teacher = db.query(User).filter(User.id == course.teacher_id).first()
+    if teacher and teacher.email:
+        background_tasks.add_task(send_teacher_assigned_email, teacher.email, teacher.name, course.title)
+        
+    return new_course
+
+@app.delete("/courses/{course_id}")
+def delete_course(course_id: int, db: Session = Depends(get_db)):
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course: raise HTTPException(404, detail="Course not found")
+    db.delete(course)
+    db.commit()
+    return {"message": "Course deleted"}
+
+# --- CONTENT & QUIZ ROUTES ---
+
+class ContentCreate(BaseModel):
+    title: str
+    file_url: str
+    content_type: str
+
+@app.post("/courses/{course_id}/content")
+def add_content(course_id: int, content: ContentCreate, db: Session = Depends(get_db)):
+    db.add(Content(**content.dict(), course_id=course_id))
+    db.commit()
+    return {"message": "Content added"}
+
 class QuestionCreate(BaseModel):
     question_text: str
     option_a: str
@@ -156,7 +170,6 @@ def create_quiz(course_id: int, quiz_data: QuizCreate, db: Session = Depends(get
 
 @app.delete("/quizzes/{quiz_id}")
 def delete_quiz(quiz_id: int, db: Session = Depends(get_db)):
-    # .first() is required for ORM cascade delete to work properly
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
     if quiz:
         db.delete(quiz)
@@ -194,6 +207,42 @@ def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get
         "quizzes": formatted_quizzes,
         "progress": {"videos": prog_v, "quizzes": prog_q}
     }
+
+# --- PROGRESS & STATS ---
+
+class ProgressUpdate(BaseModel):
+    student_id: int
+    course_id: int
+    item_id: int
+    type: str
+
+@app.post("/progress/mark")
+def mark_progress(data: ProgressUpdate, db: Session = Depends(get_db)):
+    enrollment = db.query(Enrollment).filter_by(student_id=data.student_id, course_id=data.course_id).first()
+    if not enrollment: raise HTTPException(404)
+    current = enrollment.completed_videos if data.type == "video" else enrollment.completed_quizzes
+    if str(data.item_id) not in (current or "").split(","):
+        new_val = ((current or "") + "," + str(data.item_id)).strip(",")
+        if data.type == "video": enrollment.completed_videos = new_val
+        else: enrollment.completed_quizzes = new_val
+        db.commit()
+    return {"message": "Updated"}
+
+@app.get("/teacher/stats/{teacher_id}")
+def get_teacher_stats(teacher_id: int, db: Session = Depends(get_db)):
+    courses = db.query(Course).filter(Course.teacher_id == teacher_id).all()
+    stats = []
+    for course in courses:
+        enrollments = db.query(Enrollment).filter(Enrollment.course_id == course.id).all()
+        total_vids = db.query(Content).filter(Content.course_id == course.id).count()
+        total_quiz = db.query(Quiz).filter(Quiz.course_id == course.id).count()
+        total_items = total_vids + total_quiz
+        for e in enrollments:
+            done_v = len([x for x in (e.completed_videos or "").split(",") if x])
+            done_q = len([x for x in (e.completed_quizzes or "").split(",") if x])
+            percent = int(((done_v + done_q) / total_items) * 100) if total_items > 0 else 0
+            stats.append({"student_name": e.student.name, "course_title": course.title, "video_stats": f"{done_v}/{total_vids}", "quiz_stats": f"{done_q}/{total_quiz}", "percent": percent})
+    return stats
 
 @app.get("/test-email")
 async def debug_email(): return {"message": "Email endpoint"}
