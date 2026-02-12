@@ -8,12 +8,13 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
 
-from app.email_utils import send_welcome_email
+# Import email functions
+from app.email_utils import send_welcome_email, send_enrollment_confirm, send_teacher_assigned_email
 from app.database import Base, engine, get_db
 from app.routes import users, courses, auth
 from app.models import User, Course, Enrollment, Content, Quiz, Question
 
-# Ensure tables exist
+# ✅ CRITICAL: This recreates the tables (Quizzes, Questions) correctly
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -72,13 +73,22 @@ def create_checkout_session(data: StripeCheckoutRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/payment/success")
-def payment_success(session_id: str, course_id: int, student_id: int, db: Session = Depends(get_db)):
+def payment_success(session_id: str, course_id: int, student_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
         if stripe.checkout.Session.retrieve(session_id).payment_status != 'paid': raise HTTPException(400)
     except: pass 
+    
     if not db.query(Enrollment).filter_by(student_id=student_id, course_id=course_id).first():
+        # 1. Create Enrollment
         db.add(Enrollment(student_id=student_id, course_id=course_id, transaction_id=f"STRIPE_{session_id}"))
         db.commit()
+        
+        # 2. ✅ FIX: Send Confirmation Email to Student
+        student = db.query(User).filter(User.id == student_id).first()
+        course = db.query(Course).filter(Course.id == course_id).first()
+        if student and course and student.email:
+            background_tasks.add_task(send_enrollment_confirm, student.email, student.name, course.title)
+
     return RedirectResponse(url="/student/dashboard")
 
 # --- PROGRESS ROUTES ---
@@ -116,7 +126,7 @@ def get_teacher_stats(teacher_id: int, db: Session = Depends(get_db)):
             stats.append({"student_name": e.student.name, "course_title": course.title, "video_stats": f"{done_v}/{total_vids}", "quiz_stats": f"{done_q}/{total_quiz}", "percent": percent})
     return stats
 
-# --- QUIZ & CONTENT API ---
+# --- NEW QUIZ API (Correct Structure) ---
 class QuestionCreate(BaseModel):
     question_text: str
     option_a: str
@@ -131,36 +141,38 @@ class QuizCreate(BaseModel):
 
 @app.post("/courses/{course_id}/quiz")
 def create_quiz(course_id: int, quiz_data: QuizCreate, db: Session = Depends(get_db)):
+    # 1. Create Quiz Title
     new_quiz = Quiz(title=quiz_data.title, course_id=course_id)
     db.add(new_quiz)
     db.commit()
     db.refresh(new_quiz)
+
+    # 2. Add All Questions
     for q in quiz_data.questions:
         db.add(Question(quiz_id=new_quiz.id, **q.dict()))
+    
     db.commit()
-    return {"message": "Quiz created"}
+    return {"message": "Quiz created successfully"}
 
 @app.delete("/quizzes/{quiz_id}")
 def delete_quiz(quiz_id: int, db: Session = Depends(get_db)):
-    # Fetch first to ensure ORM cascade works
+    # .first() is required for ORM cascade delete to work properly
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
     if quiz:
         db.delete(quiz)
         db.commit()
     return {"message": "Deleted"}
 
-# ✅ FIXED: Now allows Teachers OR Enrolled Students to see content
 @app.get("/courses/{course_id}/learn")
 def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course: raise HTTPException(404, detail="Course not found")
 
-    # Check: Is User the Teacher? OR Is User Enrolled?
+    # Allow Teacher OR Enrolled Student
     is_teacher = (course.teacher_id == student_id)
     enrollment = db.query(Enrollment).filter_by(course_id=course_id, student_id=student_id).first()
 
-    if not is_teacher and not enrollment: 
-        raise HTTPException(403, detail="Not Enrolled")
+    if not is_teacher and not enrollment: raise HTTPException(403, detail="Not Enrolled")
     
     all_content = db.query(Content).filter_by(course_id=course_id).all()
     quizzes = db.query(Quiz).filter_by(course_id=course_id).all()
@@ -173,7 +185,6 @@ def get_learn_content(course_id: int, student_id: int, db: Session = Depends(get
             "questions": [{"id": x.id, "question": x.question_text, "options": [x.option_a, x.option_b, x.option_c, x.option_d], "answer": x.correct_answer} for x in qs]
         })
 
-    # Get progress safely (Teachers won't have progress, so default to empty)
     prog_v = enrollment.completed_videos if enrollment else ""
     prog_q = enrollment.completed_quizzes if enrollment else ""
 

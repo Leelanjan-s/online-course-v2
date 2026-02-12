@@ -50,7 +50,6 @@
     <div id="noResults" class="hidden text-center py-10"><h3 class="text-lg font-bold text-gray-700">No courses found</h3></div>
 
     <div id="learningArea" class="hidden fixed inset-0 z-[100] bg-white flex flex-col animate__animated animate__zoomIn">
-      
       <div class="bg-gray-900 text-white p-4 flex justify-between items-center shrink-0 shadow-md">
         <button onclick="closePlayer()" class="text-gray-300 hover:text-white flex items-center gap-2 transition text-sm font-medium"><i class="fa-solid fa-arrow-left"></i> <span>Back</span></button>
         <h2 id="courseTitle" class="font-bold text-base md:text-lg truncate max-w-[200px] md:max-w-md text-center">Course Title</h2>
@@ -58,7 +57,6 @@
       </div>
 
       <div class="flex flex-col lg:flex-row flex-1 overflow-hidden h-full">
-        
         <div class="w-full lg:w-3/4 bg-black flex items-center justify-center relative group shrink-0 h-[40vh] lg:h-auto" id="videoStage">
           <div class="text-center p-6"><i class="fa-solid fa-play-circle text-5xl md:text-6xl text-white opacity-50 mb-4"></i><p class="text-gray-400 text-sm">Select content to start.</p></div>
         </div>
@@ -148,14 +146,14 @@
         courseData.videos.forEach((v, index) => {
             const isDone = (courseData.progress.videos || "").split(",").includes(String(v.id));
             playlist.innerHTML += `
-                <div onclick="playVideo(${index}, ${id}, this)" class="lesson-item p-3 rounded-lg hover:bg-indigo-50 cursor-pointer transition flex items-center gap-3 border-l-4 border-transparent hover:border-indigo-500 group bg-gray-50 mb-2">
+                <div onclick="playVideo('${v.url}', ${v.id}, ${id})" class="lesson-item p-3 rounded-lg hover:bg-indigo-50 cursor-pointer transition flex items-center gap-3 border-l-4 border-transparent hover:border-indigo-500 group bg-gray-50 mb-2">
                     <div class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-500"><i class="fa-solid fa-play text-xs"></i></div>
                     <div class="flex-grow"><p class="text-sm font-medium text-gray-700 line-clamp-1">${v.title}</p><p class="text-[10px] text-gray-400">Video</p></div>
                     ${isDone ? '<i class="fa-solid fa-circle-check text-green-500"></i>' : '<i class="fa-regular fa-circle text-gray-300"></i>'}
                 </div>`;
         });
 
-        // Render Files/Resources (NEW SECTION)
+        // Render Files/Resources
         if(courseData.resources && courseData.resources.length > 0) {
             playlist.innerHTML += `<div class="text-xs font-bold text-gray-400 uppercase mt-4 mb-2 pl-2">Study Materials</div>`;
             courseData.resources.forEach(r => {
@@ -174,9 +172,9 @@
             courseData.quizzes.forEach((q, index) => {
                  const isDone = (courseData.progress.quizzes || "").split(",").includes(String(q.id));
                  playlist.innerHTML += `
-                    <div onclick="renderQuiz(${index}, ${id}, ${q.id}, this)" class="lesson-item p-3 rounded-lg hover:bg-purple-50 cursor-pointer transition flex items-center gap-3 border-l-4 border-transparent hover:border-purple-500 group bg-gray-50 mb-2">
+                    <div onclick="renderQuiz(${q.id}, ${id})" class="lesson-item p-3 rounded-lg hover:bg-purple-50 cursor-pointer transition flex items-center gap-3 border-l-4 border-transparent hover:border-purple-500 group bg-gray-50 mb-2">
                         <div class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-purple-500"><i class="fa-solid fa-question text-xs"></i></div>
-                        <div class="flex-grow"><p class="text-sm font-medium text-gray-700 line-clamp-1">Quiz</p></div>
+                        <div class="flex-grow"><p class="text-sm font-medium text-gray-700 line-clamp-1">${q.title}</p></div>
                         ${isDone ? '<i class="fa-solid fa-circle-check text-green-500"></i>' : '<i class="fa-regular fa-circle text-gray-300"></i>'}
                     </div>`;
             });
@@ -189,41 +187,48 @@
         document.getElementById("videoStage").innerHTML = `<div class="text-center p-6"><i class="fa-solid fa-play-circle text-5xl md:text-6xl text-white opacity-50 mb-4"></i><p class="text-gray-400 text-sm">Select content.</p></div>`;
     }
 
-    function playVideo(index, cId, element) {
+    // ✅ FIXED: Smart YouTube ID Extraction
+    function playVideo(url, vId, cId) {
         document.querySelectorAll('.lesson-item').forEach(i => i.classList.remove('bg-indigo-100', 'border-indigo-500'));
-        element.classList.add('bg-indigo-100', 'border-indigo-500');
-        const v = courseData.videos[index];
-        let embedUrl = v.url;
-        if (v.url.includes("youtube") || v.url.includes("youtu.be")) {
-            const videoId = v.url.split("v=")[1] || v.url.split("/").pop();
-            embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-        }
+        
+        let videoId = "";
+        const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+        if(match) videoId = match[1];
+
+        const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : url;
+        
         document.getElementById("videoStage").innerHTML = `<iframe src="${embedUrl}" class="w-full h-full" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-        fetch("/progress/mark", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({student_id:studentId, course_id:cId, item_id:v.id, type:"video"}) });
+        fetch("/progress/mark", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({student_id:studentId, course_id:cId, item_id:vId, type:"video"}) });
     }
 
-    function renderQuiz(index, cId, qId, element) {
-        const q = courseData.quizzes[index];
-        const safeAnswer = q.answer.replace(/"/g, '&quot;'); 
-        const optsArray = (q.options || "True,False").split(",").map(o => o.trim());
-        let optsHTML = optsArray.map(opt => `<label class="block bg-gray-50 border p-3 rounded mb-2"><input type="radio" name="quiz_selection" value="${opt}" class="mr-2">${opt}</label>`).join("");
-        document.getElementById("videoStage").innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-xl max-w-lg w-full m-4 overflow-y-auto max-h-full">
-                <h2 class="text-xl font-bold mb-4">Quiz Time</h2><p class="mb-4">${q.question}</p><div class="mb-4">${optsHTML}</div>
-                <div id="quizResult" class="text-center mb-4 font-bold"></div>
-                <button onclick="submitQuiz('${safeAnswer}', ${cId}, ${qId})" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl">Submit</button>
+    function renderQuiz(qId, cId) {
+        const quiz = courseData.quizzes.find(q => q.id === qId);
+        let html = `<div class="bg-white p-8 rounded-xl shadow-2xl max-w-2xl w-full m-4 overflow-y-auto max-h-full">
+            <h2 class="text-2xl font-bold mb-6 border-b pb-2">${quiz.title}</h2>`;
+        
+        quiz.questions.forEach((q, i) => {
+            html += `<div class="mb-6">
+                <p class="font-bold text-lg mb-2">${i+1}. ${q.question}</p>
+                <div class="space-y-2">
+                    ${q.options.map(opt => `<label class="block p-3 border rounded hover:bg-gray-50 cursor-pointer"><input type="radio" name="q${q.id}" value="${opt}" class="mr-2"> ${opt}</label>`).join('')}
+                </div>
             </div>`;
+        });
+        html += `<button onclick="submitQuiz(${qId}, ${cId})" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700">Submit Assessment</button></div>`;
+        document.getElementById("videoStage").innerHTML = html;
     }
 
-    function submitQuiz(correct, cId, qId) {
-        const selected = document.querySelector('input[name="quiz_selection"]:checked');
-        const resDiv = document.getElementById("quizResult");
-        if(!selected) { resDiv.innerHTML = "<span class='text-orange-500'>Select an option!</span>"; return; }
-        if(selected.value.toLowerCase() === correct.toLowerCase()) {
-            resDiv.innerHTML = "<span class='text-green-600'>✅ Correct!</span>";
+    function submitQuiz(qId, cId) {
+        const quiz = courseData.quizzes.find(q => q.id === qId);
+        let score = 0;
+        quiz.questions.forEach(q => {
+            const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
+            if(selected && selected.value === q.answer) score++;
+        });
+        
+        alert(`You scored ${score}/${quiz.questions.length}`);
+        if(score === quiz.questions.length) {
             fetch("/progress/mark", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({student_id:studentId, course_id:cId, item_id:qId, type:"quiz"}) });
-        } else {
-            resDiv.innerHTML = "<span class='text-red-500'>❌ Incorrect.</span>";
         }
     }
     loadCourses();
