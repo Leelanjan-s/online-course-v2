@@ -187,7 +187,6 @@
         document.getElementById("videoStage").innerHTML = `<div class="text-center p-6"><i class="fa-solid fa-play-circle text-5xl md:text-6xl text-white opacity-50 mb-4"></i><p class="text-gray-400 text-sm">Select content.</p></div>`;
     }
 
-    // ✅ FIXED: Smart YouTube ID Extraction
     function playVideo(url, vId, cId) {
         document.querySelectorAll('.lesson-item').forEach(i => i.classList.remove('bg-indigo-100', 'border-indigo-500'));
         
@@ -223,7 +222,8 @@
         let score = 0;
         quiz.questions.forEach(q => {
             const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
-            if(selected && selected.value === q.answer) score++;
+            // ✅ FIX: Trims whitespaces during grading
+            if(selected && selected.value.trim() === q.answer.trim()) score++;
         });
         
         alert(`You scored ${score}/${quiz.questions.length}`);

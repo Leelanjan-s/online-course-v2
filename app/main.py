@@ -11,7 +11,7 @@ from typing import List
 # Import email functions
 from app.email_utils import send_welcome_email, send_enrollment_confirm, send_teacher_assigned_email
 from app.database import Base, engine, get_db
-# ✅ FIX 1: REMOVED 'courses' from here. Only import users and auth.
+# ✅ FIX 1: REMOVED 'courses'. Only import users and auth.
 from app.routes import users, auth 
 from app.models import User, Course, Enrollment, Content, Quiz, Question
 
@@ -20,10 +20,9 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# ✅ FIX 2: Only include these two. We handle courses manually below.
+# ✅ FIX 2: Only include these two routers.
 app.include_router(auth.router)
 app.include_router(users.router)
-# app.include_router(courses.router) <--- THIS WAS THE PROBLEM. IT IS GONE NOW.
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,7 +31,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 stripe.api_key = STRIPE_SECRET_KEY
 
-# ✅ Make sure this is your correct Railway URL
+# ✅ Make sure this matches your Railway URL
 YOUR_DOMAIN = "https://online-course-v2-production.up.railway.app"
 
 # --- PAGE ROUTES ---
@@ -93,7 +92,7 @@ def payment_success(session_id: str, course_id: int, student_id: int, background
 
     return RedirectResponse(url="/student/dashboard")
 
-# --- COURSE ROUTES (Moved here to avoid conflicts) ---
+# --- COURSE ROUTES ---
 
 class CourseCreate(BaseModel):
     title: str
@@ -134,7 +133,7 @@ def add_content(course_id: int, content: ContentCreate, db: Session = Depends(ge
     db.commit()
     return {"message": "Content added"}
 
-# --- QUIZ ROUTES (The correct ones) ---
+# --- QUIZ ROUTES ---
 
 class QuestionCreate(BaseModel):
     question_text: str
@@ -150,13 +149,11 @@ class QuizCreate(BaseModel):
 
 @app.post("/courses/{course_id}/quiz")
 def create_quiz(course_id: int, quiz_data: QuizCreate, db: Session = Depends(get_db)):
-    # 1. Create Quiz
     new_quiz = Quiz(title=quiz_data.title, course_id=course_id)
     db.add(new_quiz)
     db.commit()
     db.refresh(new_quiz)
 
-    # 2. Add Questions
     for q in quiz_data.questions:
         db.add(Question(quiz_id=new_quiz.id, **q.dict()))
     
